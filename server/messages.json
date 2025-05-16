@@ -1,0 +1,80 @@
+[
+  {
+    "name": "시온",
+    "image": "/images/시온.jpg",
+    "message": "뭐해?",
+    "unreadCount": 0,
+    "messages": [
+      {
+        "sender": "시온",
+        "text": "뭐해?",
+        "read": true
+      }
+    ]
+  },
+  {
+    "name": "리쿠",
+    "image": "/images/리쿠.jpg",
+    "message": "지금 뭐해 ~",
+    "unreadCount": 1,
+    "messages": [
+      {
+        "sender": "리쿠",
+        "text": "지금 뭐해 ~",
+        "read": false
+      }
+    ]
+  },
+  {
+    "name": "유우시",
+    "image": "/images/유우시.jpg",
+    "message": "밥 먹었어?",
+    "unreadCount": 1,
+    "messages": [
+      {
+        "sender": "유우시",
+        "text": "밥 먹었어?",
+        "read": false
+      }
+    ]
+  },
+  {
+    "name": "재희",
+    "image": "/images/재희.jpg",
+    "message": "바빠?",
+    "unreadCount": 1,
+    "messages": [
+      {
+        "sender": "재희",
+        "text": "바빠?",
+        "read": false
+      }
+    ]
+  },
+  {
+    "name": "료",
+    "image": "/images/료.jpg",
+    "message": "뭐함?",
+    "unreadCount": 1,
+    "messages": [
+      {
+        "sender": "료",
+        "text": "뭐함?",
+        "read": false
+      }
+    ]
+  },
+  {
+    "name": "사쿠야",
+    "image": "/images/사쿠야.jpg",
+    "message": "빵 먹으러 갈래?",
+    "unreadCount": 1,
+    "messages": [
+      {
+        "sender": "사쿠야",
+        "text": "빵 먹으러 갈래?",
+        "read": false
+      }
+    ]
+  }
+]

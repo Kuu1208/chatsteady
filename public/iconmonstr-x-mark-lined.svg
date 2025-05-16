@@ -1,0 +1,14 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  fill="currentColor"
+  className="w-6 h-6 text-white"
+>
+  <path
+    clipRule="evenodd"
+    fillRule="evenodd"
+    strokeLinejoin="round"
+    strokeMiterlimit="2"
+    d="M12 10.93l5.719-5.72a.75.75 0 011.281.531.75.75 0 01-.219.532l-5.72 5.719 5.719 5.719a.75.75 0 01-.531 1.281.75.75 0 01-.531-.219l-5.719-5.719-5.719 5.719a.75.75 0 01-.531.219.75.75 0 01-.75-.75c0-.192.073-.384.22-.531l5.719-5.719-5.72-5.719a.75.75 0 011.281-.532l5.719 5.72z"
+  />
+</svg>
