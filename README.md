@@ -4,11 +4,11 @@
 
 
 <p align="center">
-  <img src="./b613c6a1-423c-4124-ae88-8da7498d9bf9.png" alt="chatsteady main UI" width="800"/>
+  <img src="https://github.com/user-attachments/assets/7dc210ed-cf3c-4f16-b0aa-4efe1fc08a6a" width="800"/>
 </p>
 
 <br />
 
 <p align="center">
-  <img src="./4ede72e8-56a4-436c-8406-6ced859c57ef.png" alt="chat room UI" width="800"/>
+  <img src="https://github.com/user-attachments/assets/f4d7b20f-3417-492f-a109-30835ef2c2b6"  width="800"/>
 </p>
