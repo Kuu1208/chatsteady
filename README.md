@@ -2,7 +2,7 @@
 
 <br />
 <p align="center">
-  <img src="./엔시티위시_스테디.jpg" alt="Steady Title Image" width="600"/>
+  <img src="https://github.com/user-attachments/assets/1295fd43-4da6-483d-8a40-59c23aab3182" width="600"/>
 </p>
 
 <br />
