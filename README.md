@@ -1,5 +1,14 @@
 # chatsteady.com : Let's Go Steady! 💙
 
-<img width="361" alt="Image" src="https://github.com/user-attachments/assets/5e2062c8-d85a-4674-9ca1-38f1f8fc3a78" />
+<br />
 
-<img width="345" alt="Image" src="https://github.com/user-attachments/assets/5cb9b5c7-a02f-42d4-a7af-a07c97ec139e" />
+
+<p align="center">
+  <img src="./b613c6a1-423c-4124-ae88-8da7498d9bf9.png" alt="chatsteady main UI" width="800"/>
+</p>
+
+<br />
+
+<p align="center">
+  <img src="./4ede72e8-56a4-436c-8406-6ced859c57ef.png" alt="chat room UI" width="800"/>
+</p>
