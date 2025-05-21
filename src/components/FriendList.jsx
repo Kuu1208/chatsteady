@@ -5,6 +5,7 @@ import { ReactComponent as HeadphonesIcon } from "../icons/iconmonstr-headphones
 import { ReactComponent as CloseIcon } from "../icons/iconmonstr-x-mark-lined.svg";
 import axios from "axios";
 import ChatRoom from "./ChatRoom";
+import SakuyaChat from "./sakuyaChat";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -35,6 +36,7 @@ const FriendList = () => {
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [activeChat, setActiveChat] = useState(null);
   const [loginTime] = useState(getCurrentFormattedTime());
+  const [sakuyaChatOpen, setSakuyaChatOpen] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -55,8 +57,7 @@ const FriendList = () => {
       .then((res) => {
         const withLoginTime = res.data.map((m) => ({
           ...m,
-          time: loginTime,
-          messages: m.messages?.map(msg => ({ ...msg, time: loginTime })) || [],
+          time: m.time || loginTime,
         }));
         setMessages(withLoginTime);
       })
@@ -118,10 +119,18 @@ const FriendList = () => {
     updated[index].unreadCount = 0;
     updated[index].messages = updated[index].messages?.map(msg => ({ ...msg, read: true })) || [];
     setMessages(updated);
-    setActiveChat(updated[index]);
+
+    if (selected.name === "사쿠야") {
+      setSakuyaChatOpen(true);
+    } else {
+      setActiveChat(updated[index]);
+    }
   };
 
-  const closeChatRoom = () => setActiveChat(null);
+  const closeChatRoom = () => {
+    setActiveChat(null);
+    setSakuyaChatOpen(false);
+  };
 
   return (
     <div className="relative flex flex-col h-screen w-full max-w-[390px] mx-auto bg-white text-sm font-medium border-x border-gray-200">
@@ -129,9 +138,8 @@ const FriendList = () => {
         <source src="/audio/NCT WISH (엔시티 위시) Steady Official Audio.mp3" type="audio/mpeg" />
       </audio>
 
-      {!activeChat ? (
+      {!activeChat && !sakuyaChatOpen ? (
         <>
-          {/* 상단바 */}
           <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b">
             <span className="text-lg font-semibold">
               {activeTab === "friends" ? "친구" : "채팅"}
@@ -139,7 +147,6 @@ const FriendList = () => {
             <HeadphonesIcon className="w-5 h-5 text-gray-700 cursor-pointer" onClick={toggleAudio} />
           </div>
 
-          {/* 내 정보 */}
           {activeTab === "friends" && (
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <div className="flex items-center">
@@ -177,12 +184,10 @@ const FriendList = () => {
             </div>
           )}
 
-          {/* 친구 수 */}
           <div className="px-4 pt-2 text-xs text-gray-500">
             {activeTab === "friends" && `친구 ${friends.length}`}
           </div>
 
-          {/* 목록 */}
           <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
             {activeTab === "friends"
               ? friends.map((f, idx) => (
@@ -217,7 +222,6 @@ const FriendList = () => {
                 ))}
           </div>
 
-          {/* 하단 탭 */}
           <div className="flex justify-around items-center py-3 border-t text-xs bg-white">
             <div
               className={`flex flex-col items-center cursor-pointer ${activeTab === "friends" ? "text-blue-500" : "text-gray-400"}`}
@@ -240,11 +244,12 @@ const FriendList = () => {
             </div>
           </div>
         </>
+      ) : sakuyaChatOpen ? (
+        <SakuyaChat onBack={closeChatRoom} />
       ) : (
         <ChatRoom chat={activeChat} onClose={closeChatRoom} />
       )}
 
-      {/* 프로필 상세 화면 */}
       {selectedFriend && (
         <div
           className="absolute top-0 left-0 w-full h-full max-w-[390px] bg-cover bg-center z-50"
