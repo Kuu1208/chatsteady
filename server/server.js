@@ -85,6 +85,14 @@ const createDefaultMessages = () => {
   ];
 };
 
+const saveMessagesToFile = () => {
+  fs.writeFileSync(
+    path.join(__dirname, "messages.json"),
+    JSON.stringify(messagesByUser, null, 2),
+    "utf-8"
+  );
+};
+
 // ───────────────────── 상태 저장소 ─────────────────────
 const messagesByUser = {};
 let userData = {
@@ -121,6 +129,7 @@ app.post("/login", (req, res) => {
   if (!messagesByUser[nickname]) {
     messagesByUser[nickname] = createDefaultMessages();
   }
+  saveMessagesToFile();
   res.json({ success: true });
 });
 
@@ -161,11 +170,12 @@ app.post("/messages/read", (req, res) => {
       : m
   );
 
+  saveMessagesToFile();
   res.json({ success: true });
 });
 
 app.post("/messages/respond", (req, res) => {
-  const { name, response } = req.body;
+  const { name, response, image, fromSakuya } = req.body;
   const username = userData.nickname || "guest";
   const now = getCurrentFormattedTime();
 
@@ -174,30 +184,27 @@ app.post("/messages/respond", (req, res) => {
   const chat = messagesByUser[username].find(m => m.name === name);
   if (!chat) return res.status(404).json({ error: "Chat not found" });
 
-  // 사용자 응답 저장
+  // ✅ 사쿠야 메시지 처리
+  if (fromSakuya) {
+    const msg = {
+      sender: name,
+      ...(response && { text: response }),
+      ...(image && { image }),
+      time: now,
+    };
+    chat.messages.push(msg);
+    chat.message = response || "사진을 보냈습니다";
+    chat.time = now;
+    saveMessagesToFile();
+    return res.json({ success: true });
+  }
+
+  // 🧍 사용자 메시지 처리
   chat.messages.push({ sender: "me", text: response, time: now });
   chat.message = response;
   chat.time = now;
 
-  // 사쿠야 응답 정의
-  const replies = {
-    "갑자기? ㅋㅋ": ["거짓말이고", "나 요즘 고민이 있는데"],
-    "뭔데?": ["나 고민이 있어"],
-    "무슨 빵": ["사실은 고민이 있어서 .."]
-  };
-
-  const selectedReplies = replies[response] || [];
-
-  // 사쿠야 응답을 시간차 두고 추가
-  selectedReplies.forEach((text, idx) => {
-    setTimeout(() => {
-      const t = getCurrentFormattedTime();
-      chat.messages.push({ sender: name, text, time: t });
-      chat.message = text;
-      chat.time = t;
-    }, 1500 * (idx + 1));
-  });
-
+  saveMessagesToFile();
   res.json({ success: true });
 });
 
