@@ -94,6 +94,19 @@ const SakuyaChat = ({ onBack }) => {
     setMessages(sakuya?.messages || []);
   };
 
+  const saveSakuyaMessage = async (msg) => {
+    await axios.post(
+      "http://localhost:4000/messages/respond",
+      {
+        name: "사쿠야",
+        response: msg.text || "",
+        image: msg.image || "",
+        fromSakuya: true,
+      },
+      { withCredentials: true }
+    );
+  };
+
   const handleResponse = async (text) => {
     const now = getCurrentFormattedTime();
     const newMsg = { sender: "me", text, time: now };
@@ -118,20 +131,30 @@ const SakuyaChat = ({ onBack }) => {
       ];
 
       imagePaths.forEach((path, idx) => {
-        setTimeout(() => {
+        setTimeout(async () => {
           const reply = {
             sender: "사쿠야",
             image: path,
             time: getCurrentFormattedTime(),
           };
           setMessages((prev) => [...prev, reply]);
+          await saveSakuyaMessage(reply);
+
           if (idx === imagePaths.length - 1) {
-            setTimeout(() => {
-              setMessages((prev) => [
-                ...prev,
-                { sender: "사쿠야", text: "빵 가게랑 솜사탕 가게랑 카페 중에", time: getCurrentFormattedTime() },
-                { sender: "사쿠야", text: "어디로 불러내야 좋을까", time: getCurrentFormattedTime() },
-              ]);
+            setTimeout(async () => {
+              const followUp1 = {
+                sender: "사쿠야",
+                text: "빵 가게랑 솜사탕 가게랑 카페 중에",
+                time: getCurrentFormattedTime(),
+              };
+              const followUp2 = {
+                sender: "사쿠야",
+                text: "어디로 불러내야 좋을까",
+                time: getCurrentFormattedTime(),
+              };
+              setMessages((prev) => [...prev, followUp1, followUp2]);
+              await saveSakuyaMessage(followUp1);
+              await saveSakuyaMessage(followUp2);
               setIsLoading(false);
             }, 1500);
           }
@@ -141,13 +164,14 @@ const SakuyaChat = ({ onBack }) => {
     }
 
     replies.forEach((replyText, idx) => {
-      setTimeout(() => {
+      setTimeout(async () => {
         const reply = {
           sender: "사쿠야",
           text: replyText,
           time: getCurrentFormattedTime(),
         };
         setMessages((prev) => [...prev, reply]);
+        await saveSakuyaMessage(reply);
         if (idx === replies.length - 1) setIsLoading(false);
       }, delay + idx * 1500);
     });
@@ -240,7 +264,6 @@ const SakuyaChat = ({ onBack }) => {
         </div>
       )}
 
-      {/* 갤러리 모달 */}
       {isGalleryOpen && (
         <div className="absolute inset-0 bg-white z-50 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b">
@@ -262,7 +285,6 @@ const SakuyaChat = ({ onBack }) => {
         </div>
       )}
 
-      {/* 전체 이미지 보기 */}
       {selectedImage && (
         <div
           className="absolute inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center"
