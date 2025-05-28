@@ -12,8 +12,15 @@ const getCurrentFormattedTime = () => {
   return `${period} ${formattedHour}:${minute}`;
 };
 
+// 선택지 맵
+const choiceMap = {
+  "나 요즘 고민이 있는데": ["뭔데?", "너 알아서 해", "고민 들어주면 빵 주나"],
+  "나 고민이 있어": ["무슨 고민", "너가 고민이 있어?", "말해봐 빨리"],
+  "사실은 고민이 있어서 ..": ["내가 들어줄게", "뭔데 망설여", "빨리 말해봐"],
+};
+
 const replyMap = {
-  "갑자기? ㅋㅋ": ["거짓말이고", "나 요즘 고민이 있는데"],
+  "갑자기? ㅋㅋ": ["장난이고", "나 요즘 고민이 있는데"],
   "뭔데?": ["나 고민이 있어"],
   "무슨 빵": ["사실은 고민이 있어서 .."],
 };
@@ -21,7 +28,6 @@ const replyMap = {
 const SakuyaChat = ({ onBack }) => {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [loginTime] = useState(getCurrentFormattedTime());
 
   useEffect(() => {
     fetchMessages();
@@ -37,23 +43,20 @@ const SakuyaChat = ({ onBack }) => {
 
   const handleResponse = async (text) => {
     const now = getCurrentFormattedTime();
-    const userMessage = { sender: "me", text, time: now };
-    setMessages((prev) => [...prev, userMessage]);
+    const newMsg = { sender: "me", text, time: now };
+    setMessages((prev) => [...prev, newMsg]);
 
-    // 서버 저장
     await axios.post(
       "http://localhost:4000/messages/respond",
       { name: "사쿠야", response: text },
       { withCredentials: true }
     );
 
-    // 로딩 표시 (약간 딜레이)
     setTimeout(() => setIsLoading(true), 300);
 
     const replies = replyMap[text] || [];
     let delay = 1000;
 
-    // 1.5초 간격으로 하나씩 추가
     replies.forEach((replyText, idx) => {
       setTimeout(() => {
         const reply = {
@@ -63,12 +66,24 @@ const SakuyaChat = ({ onBack }) => {
         };
         setMessages((prev) => [...prev, reply]);
 
-        // 마지막 메시지일 경우 로딩 종료
         if (idx === replies.length - 1) {
           setIsLoading(false);
         }
       }, delay + idx * 1500);
     });
+  };
+
+  const getChoices = () => {
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.sender !== "사쿠야") return [];
+
+    return choiceMap[lastMsg.text] || (messages.length <= 1
+      ? ["갑자기? ㅋㅋ", "뭔데?", "무슨 빵"]
+      : []);
+  };
+
+  const handleChoice = (text) => {
+    handleResponse(text);
   };
 
   return (
@@ -80,7 +95,7 @@ const SakuyaChat = ({ onBack }) => {
         <GalleryIcon className="w-5 h-5 cursor-pointer" />
       </div>
 
-      {/* 채팅 영역 */}
+      {/* 채팅 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         {messages.map((msg, idx) => (
           <div
@@ -103,9 +118,7 @@ const SakuyaChat = ({ onBack }) => {
             ) : (
               <div className="flex items-end">
                 <span className="text-[10px] text-gray-500 mr-2">{msg.time}</span>
-                <div className="bg-blue-500 text-white px-4 py-2 rounded-2xl">
-                  {msg.text}
-                </div>
+                <div className="bg-blue-500 text-white px-4 py-2 rounded-2xl">{msg.text}</div>
               </div>
             )}
           </div>
@@ -125,19 +138,19 @@ const SakuyaChat = ({ onBack }) => {
       </div>
 
       {/* 선택지 */}
-      {!isLoading && messages.length <= 1 && (
+      {!isLoading && getChoices().length > 0 && (
         <div className="p-4 border-t">
           <div className="text-center text-xs text-gray-600 mb-2">어떻게 답장할까요?</div>
           <div className="space-y-2">
-            <button className="w-full py-2 rounded-xl border" onClick={() => handleResponse("갑자기? ㅋㅋ")}>
-              갑자기? ㅋㅋ
-            </button>
-            <button className="w-full py-2 rounded-xl border" onClick={() => handleResponse("뭔데?")}>
-              뭔데?
-            </button>
-            <button className="w-full py-2 rounded-xl border" onClick={() => handleResponse("무슨 빵")}>
-              무슨 빵
-            </button>
+            {getChoices().map((choice, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleChoice(choice)}
+                className="w-full py-2 rounded-xl border bg-gray-100 hover:bg-gray-200 text-gray-800"
+              >
+                {choice}
+              </button>
+            ))}
           </div>
         </div>
       )}
