@@ -44,6 +44,8 @@ const FriendList = () => {
       .then((res) => {
         const { nickname, phoneNumber, imageUrl } = res.data;
         setNickname(nickname || "");
+        // 🔵 닉네임 가져오면 localStorage에도 저장 (SakuyaChat 폴백용)
+        if (nickname) localStorage.setItem("userName", nickname);
         setPhone(phoneNumber || "");
         setProfileImage(imageUrl || null);
       })
@@ -70,8 +72,11 @@ const FriendList = () => {
   }, [messages]);
 
   const handleNicknameSave = () => {
-    if (!nickname.trim()) return;
-    axios.post("http://localhost:4000/login", { nickname }, { withCredentials: true });
+    const n = nickname.trim();
+    if (!n) return;
+    axios.post("http://localhost:4000/login", { nickname: n }, { withCredentials: true });
+    // 🔵 사용자가 변경한 닉네임도 저장
+    localStorage.setItem("userName", n);
   };
 
   const handlePhoneSave = () => {
@@ -245,7 +250,8 @@ const FriendList = () => {
           </div>
         </>
       ) : sakuyaChatOpen ? (
-        <SakuyaChat onBack={closeChatRoom} />
+        // 🔵 닉네임을 SakuyaChat에 전달
+        <SakuyaChat onBack={closeChatRoom} userName={nickname?.trim()} />
       ) : (
         <ChatRoom chat={activeChat} onClose={closeChatRoom} />
       )}
