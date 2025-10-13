@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ReactComponent as BackIcon } from "../icons/iconmonstr-arrow-64.svg";
 import { ReactComponent as GalleryIcon } from "../icons/iconmonstr-picture-5.svg";
 import axios from "axios";
@@ -11,6 +11,15 @@ const getCurrentFormattedTime = () => {
   const formattedHour = hour % 12 || 12;
   return `${period} ${formattedHour}:${minute}`;
 };
+
+// 한국어 라벨 정리
+const outfitLabel = (o) => {
+  if (o === "노랑") return "노랑색 옷";
+  if (o === "셔츠") return "셔츠";
+  if (o === "줄무늬") return "줄무늬 옷";
+  return o || "";
+};
+const placeLabel = (p) => p || "";
 
 const choiceMap = {
   "나 요즘 고민이 있는데": ["뭔데?", "너 알아서 해", "고민 들어주면 빵 주나"],
@@ -28,7 +37,9 @@ const choiceMap = {
   "너가 나 좀 도와줘": ["응응 나만 믿어!"],
   "나 좀 도와줄 수 있어?" : ["응응 나만 믿어!"],
 
-  "어디로 불러내야 좋을까": ["빵 가게가 좋을 듯?", "솜사탕 가게가 귀여움", "카페가 젤 무난하지"]
+  "어디로 불러내야 좋을까": ["빵 가게가 좋을 듯?", "솜사탕 가게가 귀여움", "카페가 젤 무난하지"],
+
+  "옷은 뭐 입고 갈까?" : ["귀엽게 노랑색 옷?", "셔츠가 나을 듯", "줄무늬가 제일 나아"],
 };
 
 const replyMap = {
@@ -71,16 +82,36 @@ const replyMap = {
 
   "응응 나만 믿어!": ["imageSet"],
 
-  "빵 가게가 좋을 듯?": [],
-  "솜사탕 가게가 귀여움": [],
-  "카페가 젤 무난하지": []
+  "빵 가게가 좋을 듯?": ["그런가?", "옷은 뭐 입고 갈까?", "imageSet1"],
+  "솜사탕 가게가 귀여움": ["역시 솜사탕이지", "옷은 뭐 입고 갈까?", "imageSet1"],
+  "카페가 젤 무난하지": ["그치? 나도 그렇게 생각했어", "옷은 뭐 입고 갈까?", "imageSet1"],
+
+  // 옷 선택 뒤 고백 멘트 받기
+  "귀엽게 노랑색 옷?": ["그치? 나도 그렇게 생각했어", "고백 멘트는 뭐라고 하는게 좋지"],
+  "셔츠가 나을 듯": ["그래? 알았어", "고백 멘트는 뭐라고 하는게 좋지"],
+  "줄무늬가 제일 나아": ["오키", "고백 멘트는 뭐라고 하는게 좋지"],
 };
 
-const SakuyaChat = ({ onBack }) => {
+const SakuyaChat = ({ onBack, userName }) => {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [confessionInput, setConfessionInput] = useState("");
+
+  // 선택 추적
+  const [selectedPlace, setSelectedPlace] = useState(null);   // "카페" | "빵 가게" | "솜사탕 가게"
+  const [selectedOutfit, setSelectedOutfit] = useState(null); // "노랑" | "셔츠" | "줄무늬"
+
+  // 표시할 이름 (prop > localStorage > 없음이면 빈문자열)
+  const displayName = useMemo(() => {
+    try {
+      const saved = (localStorage.getItem("userName") || "").trim();
+      return (userName || saved || "").trim();
+    } catch {
+      return (userName || "").trim();
+    }
+  }, [userName]);
 
   useEffect(() => {
     fetchMessages();
@@ -121,71 +152,147 @@ const SakuyaChat = ({ onBack }) => {
     setTimeout(() => setIsLoading(true), 300);
 
     const replies = replyMap[text] || [];
-    let delay = 1000;
+    const textReplies = replies.filter((r) => !r.startsWith("imageSet"));
+    const imageSetKey = replies.find((r) => r.startsWith("imageSet"));
 
-    if (replies.includes("imageSet")) {
-      const imagePaths = [
-        "/images/사쿠야_빵.jpg",
-        "/images/사쿠야_솜사탕.jpg",
-        "/images/사쿠야_커피.jpg",
-      ];
+    // 텍스트 응답
+    textReplies.forEach((replyText, idx) => {
+      setTimeout(async () => {
+        const reply = { sender: "사쿠야", text: replyText, time: getCurrentFormattedTime() };
+        setMessages((prev) => [...prev, reply]);
+        await saveSakuyaMessage(reply);
+        if (idx === textReplies.length - 1 && !imageSetKey) setIsLoading(false);
+      }, 1000 + idx * 1500);
+    });
 
+    // 장소 후보 이미지
+    if (imageSetKey === "imageSet") {
+      const imagePaths = ["/images/사쿠야_빵.jpg", "/images/사쿠야_솜사탕.jpg", "/images/사쿠야_커피.jpg"];
       imagePaths.forEach((path, idx) => {
         setTimeout(async () => {
-          const reply = {
-            sender: "사쿠야",
-            image: path,
-            time: getCurrentFormattedTime(),
-          };
+          const reply = { sender: "사쿠야", image: path, time: getCurrentFormattedTime() };
           setMessages((prev) => [...prev, reply]);
           await saveSakuyaMessage(reply);
-
           if (idx === imagePaths.length - 1) {
             setTimeout(async () => {
-              const followUp1 = {
-                sender: "사쿠야",
-                text: "빵 가게랑 솜사탕 가게랑 카페 중에",
-                time: getCurrentFormattedTime(),
-              };
-              const followUp2 = {
-                sender: "사쿠야",
-                text: "어디로 불러내야 좋을까",
-                time: getCurrentFormattedTime(),
-              };
+              const followUp1 = { sender: "사쿠야", text: "빵 가게랑 솜사탕 가게랑 카페 중에", time: getCurrentFormattedTime() };
+              const followUp2 = { sender: "사쿠야", text: "어디로 불러내야 좋을까", time: getCurrentFormattedTime() };
               setMessages((prev) => [...prev, followUp1, followUp2]);
               await saveSakuyaMessage(followUp1);
               await saveSakuyaMessage(followUp2);
               setIsLoading(false);
             }, 1500);
           }
-        }, delay + idx * 1500);
+        }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
-      return;
     }
 
-    replies.forEach((replyText, idx) => {
+    // 옷 후보 이미지
+    if (imageSetKey === "imageSet1") {
+      const imagePaths = [
+        "/images/사쿠_옷/사쿠야_노랑.jpg",
+        "/images/사쿠_옷/사쿠야_셔츠.jpg",
+        "/images/사쿠_옷/사쿠야_줄무늬.jpg",
+      ];
+      imagePaths.forEach((path, idx) => {
+        setTimeout(async () => {
+          const reply = { sender: "사쿠야", image: path, time: getCurrentFormattedTime() };
+          setMessages((prev) => [...prev, reply]);
+          await saveSakuyaMessage(reply);
+          if (idx === imagePaths.length - 1) {
+            setTimeout(async () => {
+              const followUp = { sender: "사쿠야", text: "옷은 뭐 입고 갈까?", time: getCurrentFormattedTime() };
+              setMessages((prev) => [...prev, followUp]);
+              await saveSakuyaMessage(followUp);
+              setIsLoading(false);
+            }, 1500);
+          }
+        }, 1000 + textReplies.length * 1500 + idx * 1500);
+      });
+    }
+  };
+
+  // 마지막 메시지 & 고백 단계 여부
+  const lastMsg = messages[messages.length - 1];
+  const isConfessionStep =
+    lastMsg?.sender === "사쿠야" && lastMsg?.text === "고백 멘트는 뭐라고 하는게 좋지";
+
+    const handleConfessionSubmit = async () => {
+    const text = confessionInput.trim();
+    if (!text) return;
+
+    const now = getCurrentFormattedTime();
+    const myMsg = { sender: "me", text, time: now };
+    setMessages((prev) => [...prev, myMsg]);
+    await axios.post(
+      "http://localhost:4000/messages/respond",
+      { name: "사쿠야", response: text },
+      { withCredentials: true }
+    );
+
+    setConfessionInput("");
+    setIsLoading(true);
+
+    const clean = text.replace(/^["'“”]|["'“”]$/g, "");
+
+    const msg1 = { sender: "사쿠야", text: "알았어", time: getCurrentFormattedTime() };
+    const msg2 = displayName
+      ? { sender: "사쿠야", text: `${displayName}`, time: getCurrentFormattedTime() }
+      : null;
+    const msg3 = { sender: "사쿠야", text: clean, time: getCurrentFormattedTime() };
+
+    const t1 = 800;
+    const t2 = displayName ? 1600 : null;
+    const t3 = displayName ? 2400 : 1600;
+
+    setTimeout(async () => {
+      setMessages((p) => [...p, msg1]);
+      await saveSakuyaMessage(msg1);
+    }, t1);
+
+    if (msg2) {
       setTimeout(async () => {
-        const reply = {
+        setMessages((p) => [...p, msg2]);
+        await saveSakuyaMessage(msg2);
+      }, t2);
+    }
+
+    setTimeout(async () => {
+      setMessages((p) => [...p, msg3]);
+      await saveSakuyaMessage(msg3);
+
+      if (selectedPlace && selectedOutfit) {
+        const msg4 = {
           sender: "사쿠야",
-          text: replyText,
+          text: `내일 ${placeLabel(selectedPlace)}에서 ${outfitLabel(selectedOutfit)} 입고 기다릴게`,
           time: getCurrentFormattedTime(),
         };
-        setMessages((prev) => [...prev, reply]);
-        await saveSakuyaMessage(reply);
-        if (idx === replies.length - 1) setIsLoading(false);
-      }, delay + idx * 1500);
-    });
+        setTimeout(async () => {
+          setMessages((p) => [...p, msg4]);
+          await saveSakuyaMessage(msg4);
+          setIsLoading(false);
+        }, 1000);
+      } else {
+        setIsLoading(false);
+      }
+    }, t3);
   };
 
   const getChoices = () => {
-    const lastMsg = messages[messages.length - 1];
     if (!lastMsg || lastMsg.sender !== "사쿠야") return [];
-    return choiceMap[lastMsg.text] || (messages.length <= 1
-      ? ["갑자기? ㅋㅋ", "뭔데?", "무슨 빵"]
-      : []);
+    return choiceMap[lastMsg.text] || (messages.length <= 1 ? ["갑자기? ㅋㅋ", "뭔데?", "무슨 빵"] : []);
   };
 
+  // 선택 시 장소/옷 상태 기록
   const handleChoice = (text) => {
+    if (text === "카페가 젤 무난하지") setSelectedPlace("카페");
+    if (text === "빵 가게가 좋을 듯?") setSelectedPlace("빵 가게");
+    if (text === "솜사탕 가게가 귀여움") setSelectedPlace("솜사탕 가게");
+
+    if (text === "귀엽게 노랑색 옷?") setSelectedOutfit("노랑");
+    if (text === "셔츠가 나을 듯") setSelectedOutfit("셔츠");
+    if (text === "줄무늬가 제일 나아") setSelectedOutfit("줄무늬");
+
     handleResponse(text);
   };
 
@@ -201,10 +308,7 @@ const SakuyaChat = ({ onBack }) => {
       {/* 채팅 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex ${msg.sender === "me" ? "justify-end" : "items-start"}`}
-          >
+          <div key={idx} className={`flex ${msg.sender === "me" ? "justify-end" : "items-start"}`}>
             {msg.sender !== "me" ? (
               <div className="flex items-start">
                 <img src="/images/사쿠야.jpg" alt="사쿠야" className="w-12 h-12 rounded-full mr-2" />
@@ -212,15 +316,9 @@ const SakuyaChat = ({ onBack }) => {
                   <div className="text-sm font-semibold mb-1">사쿠야</div>
                   <div className="flex items-end">
                     {msg.image ? (
-                      <img
-                        src={msg.image}
-                        alt="사쿠야 이미지"
-                        className="max-w-[200px] rounded-xl"
-                      />
+                      <img src={msg.image} alt="사쿠야 이미지" className="max-w-[200px] rounded-xl" />
                     ) : (
-                      <div className="bg-gray-200 text-black px-4 py-2 rounded-2xl">
-                        {msg.text}
-                      </div>
+                      <div className="bg-gray-200 text-black px-4 py-2 rounded-2xl">{msg.text}</div>
                     )}
                     <span className="text-[10px] text-gray-500 ml-2">{msg.time}</span>
                   </div>
@@ -247,20 +345,41 @@ const SakuyaChat = ({ onBack }) => {
         )}
       </div>
 
-      {!isLoading && getChoices().length > 0 && (
+      {/* 하단 입력/선택 */}
+      {!isLoading && (isConfessionStep || getChoices().length > 0) && (
         <div className="p-4 border-t">
-          <div className="text-center text-xs text-gray-600 mb-2">어떻게 답장할까요?</div>
-          <div className="space-y-2">
-            {getChoices().map((choice, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleChoice(choice)}
-                className="w-full py-2 rounded-xl border bg-gray-100 hover:bg-gray-200 text-gray-800"
-              >
-                {choice}
-              </button>
-            ))}
-          </div>
+          {isConfessionStep ? (
+            <>
+              <div className="text-center text-xs text-gray-600 mb-2">고백 멘트를 입력해줘!</div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 border rounded-xl px-3 py-2"
+                  placeholder='예: 그냥 "나랑 사귀자" 라고 해봐'
+                  value={confessionInput}
+                  onChange={(e) => setConfessionInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleConfessionSubmit()}
+                />
+                <button onClick={handleConfessionSubmit} className="px-4 py-2 rounded-xl bg-blue-500 text-white">
+                  보내기
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center text-xs text-gray-600 mb-2">어떻게 답장할까요?</div>
+              <div className="space-y-2">
+                {getChoices().map((choice, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleChoice(choice)}
+                    className="w-full py-2 rounded-xl border bg-gray-100 hover:bg-gray-200 text-gray-800"
+                  >
+                    {choice}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -272,7 +391,7 @@ const SakuyaChat = ({ onBack }) => {
             <div className="w-5 h-5" />
           </div>
           <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-2 p-2">
-            {messages.filter(m => m.image).map((msg, idx) => (
+            {messages.filter((m) => m.image).map((msg, idx) => (
               <img
                 key={idx}
                 src={msg.image}
