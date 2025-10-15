@@ -6,6 +6,9 @@ import { ReactComponent as CloseIcon } from "../icons/iconmonstr-x-mark-lined.sv
 import axios from "axios";
 import ChatRoom from "./ChatRoom";
 import SakuyaChat from "./sakuyaChat";
+import YushiChat from "./yushiChat";
+import RikuChat from "./rikuChat";
+import SionChat from "./sionChat";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -36,34 +39,41 @@ const FriendList = () => {
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [activeChat, setActiveChat] = useState(null);
   const [loginTime] = useState(getCurrentFormattedTime());
+
   const [sakuyaChatOpen, setSakuyaChatOpen] = useState(false);
+  const [yushiChatOpen, setYushiChatOpen] = useState(false);
+  const [rikuChatOpen, setRikuChatOpen] = useState(false);
+  const [sionChatOpen, setSionChatOpen] = useState(false);
+
   const audioRef = useRef(null);
 
   useEffect(() => {
-    axios.get("http://localhost:4000/me", { withCredentials: true })
-      .then((res) => {
-        const { nickname, phoneNumber, imageUrl } = res.data;
+    (async () => {
+      try {
+        const me = await axios.get("http://localhost:4000/me", { withCredentials: true });
+        const { nickname, phoneNumber, imageUrl } = me?.data ?? {};
         setNickname(nickname || "");
-        // 🔵 닉네임 가져오면 localStorage에도 저장 (SakuyaChat 폴백용)
-        if (nickname) localStorage.setItem("userName", nickname);
         setPhone(phoneNumber || "");
         setProfileImage(imageUrl || null);
-      })
-      .catch(() => {
+        if (nickname) localStorage.setItem("userName", nickname);
+      } catch {
         setNickname("닉네임");
         setPhone("");
         setProfileImage(null);
-      });
+      }
 
-    axios.get("http://localhost:4000/messages", { withCredentials: true })
-      .then((res) => {
-        const withLoginTime = res.data.map((m) => ({
+      try {
+        const res = await axios.get("http://localhost:4000/messages", { withCredentials: true });
+        const arr = Array.isArray(res.data) ? res.data : [];
+        const withLoginTime = arr.map((m) => ({
           ...m,
           time: m.time || loginTime,
         }));
         setMessages(withLoginTime);
-      })
-      .catch(() => console.error("메시지 불러오기 실패"));
+      } catch (e) {
+        console.error("메시지 불러오기 실패", e);
+      }
+    })();
   }, [loginTime]);
 
   useEffect(() => {
@@ -72,11 +82,10 @@ const FriendList = () => {
   }, [messages]);
 
   const handleNicknameSave = () => {
-    const n = nickname.trim();
-    if (!n) return;
-    axios.post("http://localhost:4000/login", { nickname: n }, { withCredentials: true });
-    // 🔵 사용자가 변경한 닉네임도 저장
-    localStorage.setItem("userName", n);
+    const nk = nickname.trim();
+    if (!nk) return;
+    axios.post("http://localhost:4000/login", { nickname: nk }, { withCredentials: true });
+    localStorage.setItem("userName", nk);
   };
 
   const handlePhoneSave = () => {
@@ -87,7 +96,6 @@ const FriendList = () => {
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const formData = new FormData();
     formData.append("image", file);
 
@@ -111,22 +119,39 @@ const FriendList = () => {
 
   const handleChatClick = async (index) => {
     const selected = messages[index];
+    if (!selected) return;
 
     try {
-      await axios.post("http://localhost:4000/messages/read", {
-        name: selected.name,
-      }, { withCredentials: true });
+      await axios.post(
+        "http://localhost:4000/messages/read",
+        { name: selected.name },
+        { withCredentials: true }
+      );
     } catch (e) {
       console.error("서버에 읽음 처리 실패", e);
     }
 
     const updated = [...messages];
     updated[index].unreadCount = 0;
-    updated[index].messages = updated[index].messages?.map(msg => ({ ...msg, read: true })) || [];
+    updated[index].messages = updated[index].messages?.map((msg) => ({ ...msg, read: true })) || [];
     setMessages(updated);
 
+    // 모든 플래그 초기화
+    setActiveChat(null);
+    setSakuyaChatOpen(false);
+    setYushiChatOpen(false);
+    setRikuChatOpen(false);
+    setSionChatOpen(false);
+
+    // 캐릭터별 전용 채팅 열기
     if (selected.name === "사쿠야") {
       setSakuyaChatOpen(true);
+    } else if (selected.name === "유우시") {
+      setYushiChatOpen(true);
+    } else if (selected.name === "리쿠") {
+      setRikuChatOpen(true);
+    } else if (selected.name === "시온") {
+      setSionChatOpen(true);
     } else {
       setActiveChat(updated[index]);
     }
@@ -135,7 +160,13 @@ const FriendList = () => {
   const closeChatRoom = () => {
     setActiveChat(null);
     setSakuyaChatOpen(false);
+    setYushiChatOpen(false);
+    setRikuChatOpen(false);
+    setSionChatOpen(false);
   };
+
+  const isHome =
+    !activeChat && !sakuyaChatOpen && !yushiChatOpen && !rikuChatOpen && !sionChatOpen;
 
   return (
     <div className="relative flex flex-col h-screen w-full max-w-[390px] mx-auto bg-white text-sm font-medium border-x border-gray-200">
@@ -143,7 +174,7 @@ const FriendList = () => {
         <source src="/audio/NCT WISH (엔시티 위시) Steady Official Audio.mp3" type="audio/mpeg" />
       </audio>
 
-      {!activeChat && !sakuyaChatOpen ? (
+      {isHome ? (
         <>
           <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b">
             <span className="text-lg font-semibold">
@@ -196,7 +227,11 @@ const FriendList = () => {
           <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
             {activeTab === "friends"
               ? friends.map((f, idx) => (
-                  <div key={idx} className="flex items-center justify-between cursor-pointer" onClick={() => setSelectedFriend(f)}>
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => setSelectedFriend(f)}
+                  >
                     <div className="flex items-center">
                       <img src={f.image} alt={f.name} className="w-10 h-10 rounded-full object-cover mr-3" />
                       <span>{f.name}</span>
@@ -207,7 +242,11 @@ const FriendList = () => {
                   </div>
                 ))
               : messages.map((m, idx) => (
-                  <div key={idx} className="flex justify-between items-center cursor-pointer" onClick={() => handleChatClick(idx)}>
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center cursor-pointer"
+                    onClick={() => handleChatClick(idx)}
+                  >
                     <div className="flex items-center">
                       <img src={m.image} alt={m.name} className="w-10 h-10 rounded-full object-cover mr-3" />
                       <div>
@@ -250,8 +289,13 @@ const FriendList = () => {
           </div>
         </>
       ) : sakuyaChatOpen ? (
-        // 🔵 닉네임을 SakuyaChat에 전달
-        <SakuyaChat onBack={closeChatRoom} userName={nickname?.trim()} />
+        <SakuyaChat onBack={closeChatRoom} userName={nickname} />
+      ) : yushiChatOpen ? (
+        <YushiChat onBack={closeChatRoom} userName={nickname} />
+      ) : rikuChatOpen ? (
+        <RikuChat onBack={closeChatRoom} userName={nickname} />
+      ) : sionChatOpen ? (
+        <SionChat onBack={closeChatRoom} userName={nickname} />
       ) : (
         <ChatRoom chat={activeChat} onClose={closeChatRoom} />
       )}
@@ -270,10 +314,7 @@ const FriendList = () => {
           }}
         >
           <div className="flex justify-start items-start p-4">
-            <CloseIcon
-              className="w-6 h-6 text-white cursor-pointer"
-              onClick={() => setSelectedFriend(null)}
-            />
+            <CloseIcon className="w-6 h-6 text-white cursor-pointer" onClick={() => setSelectedFriend(null)} />
           </div>
           <div className="flex flex-col items-center justify-center h-[80%] text-white">
             <img
