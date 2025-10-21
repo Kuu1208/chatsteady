@@ -17,6 +17,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:5173",
+  "https://chatsteady-k522.vercel.app",
   process.env.FRONTEND_URL, // 예: https://chatsteady-k522.vercel.app
 ].filter(Boolean);
 
