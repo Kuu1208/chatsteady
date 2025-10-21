@@ -12,6 +12,7 @@ import YushiChat from "./yushiChat";
 import RikuChat from "./rikuChat";
 import SionChat from "./sionChat";
 import RyoChat from "./ryoChat";
+import JaeheeChat from "./jaeheeChat";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -48,6 +49,7 @@ const FriendList = () => {
   const [rikuChatOpen, setRikuChatOpen] = useState(false);
   const [sionChatOpen, setSionChatOpen] = useState(false);
   const [ryoChatOpen, setRyoChatOpen] = useState(false);
+  const [jaeheeChatOpen, setJaeheeChatOpen] = useState(false);
 
   const audioRef = useRef(null);
 
@@ -143,6 +145,7 @@ const FriendList = () => {
     setRikuChatOpen(false);
     setSionChatOpen(false);
     setRyoChatOpen(false);
+    setJaeheeChatOpen(false);
 
     // 캐릭터별 전용 채팅 열기
     if (selected.name === "사쿠야") setSakuyaChatOpen(true);
@@ -150,6 +153,7 @@ const FriendList = () => {
     else if (selected.name === "리쿠") setRikuChatOpen(true);
     else if (selected.name === "시온") setSionChatOpen(true);
     else if (selected.name === "료") setRyoChatOpen(true);
+    else if (selected.name === "재희") setJaeheeChatOpen(true);
     else setActiveChat(updated[index]);
   };
 
@@ -160,6 +164,7 @@ const FriendList = () => {
     setRikuChatOpen(false);
     setSionChatOpen(false);
     setRyoChatOpen(false);
+    setJaeheeChatOpen(false);
   };
 
   const isHome =
@@ -168,7 +173,8 @@ const FriendList = () => {
     !yushiChatOpen &&
     !rikuChatOpen &&
     !sionChatOpen &&
-    !ryoChatOpen;
+    !ryoChatOpen  &&
+    !jaeheeChatOpen;
 
   return (
     <div className="relative flex flex-col h-screen w-full max-w-[390px] mx-auto bg-white text-sm font-medium border-x border-gray-200">
@@ -330,6 +336,8 @@ const FriendList = () => {
         <SionChat onBack={closeChatRoom} userName={nickname} />
       ) : ryoChatOpen ? (
         <RyoChat onBack={closeChatRoom} userName={nickname} />
+        ) : jaeheeChatOpen ? (
+        <JaeheeChat onBack={closeChatRoom} userName={nickname} />
       ) : (
         <ChatRoom chat={activeChat} onClose={closeChatRoom} />
       )}
