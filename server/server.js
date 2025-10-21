@@ -6,47 +6,40 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 
-process.env.TZ = "Asia/Seoul";
-
-
 const app = express();
 const port = process.env.PORT || 4000;
 const isProd = process.env.NODE_ENV === "production";
 
-// 프런트(브라우저) 도메인 – Vercel 주소 넣어줘야 쿠키가 cross-site로 붙음
+// ───────────────────── 기본 설정 ─────────────────────
+app.set("trust proxy", 1);
+
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://chatsteady-k522.vercel.app";
 const allowedOrigins = [
   "http://localhost:3000",
-  "http://localhost:3001",
   "http://localhost:5173",
   "https://chatsteady-k522.vercel.app",
-  process.env.FRONTEND_URL, // 예: https://chatsteady-k522.vercel.app
+  FRONTEND_URL,
 ].filter(Boolean);
 
-// 업로드 폴더
-const UPLOAD_DIR = path.join(__dirname, "uploads");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-// (옵션) 클라이언트 빌드를 같은 서버에서 서빙할 경우만 사용
-const CLIENT_BUILD_DIR = path.join(__dirname, "client", "build");
-const hasClientBuild = fs.existsSync(CLIENT_BUILD_DIR);
-
-// ───────────────────── 미들웨어 ─────────────────────
-app.set("trust proxy", 1); // Render/프록시 뒤에 있을 때 secure 쿠키 인식
 app.use(
   cors({
     origin(origin, cb) {
-      // 서버→서버 호출(origin 없음)도 허용
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
+      console.warn("⚠️  CORS 차단:", origin);
       return cb(null, false);
     },
     credentials: true,
   })
 );
+
 app.use(cookieParser());
 app.use(express.json());
+
+// 업로드 폴더
+const UPLOAD_DIR = path.join(__dirname, "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use("/uploads", express.static(UPLOAD_DIR));
-if (hasClientBuild) app.use(express.static(CLIENT_BUILD_DIR));
 
 // ───────────────────── 유틸 ─────────────────────
 const getCurrentFormattedTime = () => {
@@ -63,6 +56,7 @@ const makeAbsoluteUrl = (req, relativePath) => {
   return `${base}${relativePath}`;
 };
 
+// ───────────────────── 초기 메시지 ─────────────────────
 const createDefaultMessages = () => {
   const time = getCurrentFormattedTime();
   return [
@@ -117,24 +111,24 @@ const createDefaultMessages = () => {
   ];
 };
 
+// ───────────────────── 세션 ─────────────────────
+// 세션(브라우저 닫으면 삭제)
 const sessions = {}; // { sid: { userData, messages } }
 
 const ensureSession = (req, res, next) => {
   let { sid } = req.cookies || {};
-
   if (!sid) {
     sid = crypto.randomUUID();
-
     res.cookie("sid", sid, {
       httpOnly: true,
       secure: isProd,
       sameSite: isProd ? "None" : "Lax",
-      
+      // ❗ 세션 쿠키 — maxAge 없음 (브라우저 닫으면 삭제)
     });
   }
 
-  // 🔹 세션 메모리에 없으면 초기화
   if (!sessions[sid]) {
+    console.log("🆕 새로운 세션 생성:", sid);
     sessions[sid] = {
       userData: { nickname: "", phoneNumber: "", imageUrl: "" },
       messages: createDefaultMessages(),
@@ -158,6 +152,7 @@ const upload = multer({
 // ───────────────────── 라우트 ─────────────────────
 app.get("/health", (_, res) => res.json({ ok: true, time: Date.now() }));
 
+// 사용자 정보
 app.get("/me", (req, res) => {
   res.json(req.session.userData);
 });
@@ -165,8 +160,7 @@ app.get("/me", (req, res) => {
 app.post("/login", (req, res) => {
   const { nickname } = req.body || {};
   req.session.userData.nickname = (nickname || "").trim();
-  // 로그인 시에도 각 세션은 이미 분리되어 있음
-  return res.json({ success: true });
+  res.json({ success: true });
 });
 
 app.post("/profile/image", upload.single("image"), (req, res) => {
@@ -182,30 +176,33 @@ app.post("/profile/phone", (req, res) => {
   res.json({ success: true });
 });
 
+// 메시지 리스트
 app.get("/messages", (req, res) => {
-  res.json(req.session.messages || []);
+  if (!req.session.messages || !Array.isArray(req.session.messages)) {
+    req.session.messages = createDefaultMessages();
+  }
+  res.json(req.session.messages);
 });
 
+// 읽음 처리
 app.post("/messages/read", (req, res) => {
   const { name } = req.body || {};
-  const list = req.session.messages || [];
-  req.session.messages = list.map((m) =>
+  req.session.messages = (req.session.messages || []).map((m) =>
     m.name === name
-      ? { ...m, unreadCount: 0, messages: (m.messages || []).map((msg) => ({ ...msg, read: true })) }
+      ? { ...m, unreadCount: 0, messages: m.messages.map((msg) => ({ ...msg, read: true })) }
       : m
   );
   res.json({ success: true });
 });
 
+// 메시지 추가/응답
 app.post("/messages/respond", (req, res) => {
   const { name, response, image, fromSakuya, fromYushi, fromNpc } = req.body || {};
-  const list = req.session.messages || [];
   const now = getCurrentFormattedTime();
 
-  const chat = list.find((m) => m.name === name);
+  const chat = (req.session.messages || []).find((m) => m.name === name);
   if (!chat) return res.status(404).json({ error: "Chat not found" });
 
-  // NPC
   if (fromNpc || fromSakuya || fromYushi) {
     const npcMsg = {
       sender: name,
@@ -219,14 +216,23 @@ app.post("/messages/respond", (req, res) => {
     return res.json({ success: true });
   }
 
-  // 사용자
   chat.messages.push({ sender: "me", text: response, time: now });
   chat.message = response;
   chat.time = now;
-  return res.json({ success: true });
+  res.json({ success: true });
 });
 
-if (hasClientBuild) {
+// (디버그용) 세션 리셋
+app.post("/reset", (req, res) => {
+  req.session.userData = { nickname: "", phoneNumber: "", imageUrl: "" };
+  req.session.messages = createDefaultMessages();
+  res.json({ success: true });
+});
+
+// ───────────────────── 클라이언트 빌드 ─────────────────────
+const CLIENT_BUILD_DIR = path.join(__dirname, "client", "build");
+if (fs.existsSync(CLIENT_BUILD_DIR)) {
+  app.use(express.static(CLIENT_BUILD_DIR));
   app.get("*", (req, res) => {
     res.sendFile(path.join(CLIENT_BUILD_DIR, "index.html"));
   });
@@ -234,9 +240,4 @@ if (hasClientBuild) {
 
 app.listen(port, () => {
   console.log(`✅ Server listening at http://localhost:${port}`);
-  if (hasClientBuild) {
-    console.log(`📦 Serving client from: ${CLIENT_BUILD_DIR}`);
-  } else {
-    console.log("ℹ️ No client build found. API-only mode.");
-  }
 });
