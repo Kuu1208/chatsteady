@@ -3,7 +3,6 @@ import { ReactComponent as UserIcon } from "../icons/iconmonstr-user-6.svg";
 import { ReactComponent as ChatIcon } from "../icons/iconmonstr-speech-bubble-3.svg";
 import { ReactComponent as HeadphonesIcon } from "../icons/iconmonstr-headphones-2.svg";
 import { ReactComponent as CloseIcon } from "../icons/iconmonstr-x-mark-lined.svg";
-// import axios from "axios";
 import { api } from "../api";
 
 import ChatRoom from "./ChatRoom";
@@ -58,11 +57,11 @@ const FriendList = () => {
       try {
         const me = await api.get("/me");
         const { nickname, phoneNumber, imageUrl } = me?.data ?? {};
-        setNickname(nickname || "");
+        setNickname(nickname || ""); // 기본 닉네임 없음
         setPhone(phoneNumber || "");
         setProfileImage(imageUrl || null);
       } catch {
-        setNickname("닉네임");
+        setNickname("");
         setPhone("");
         setProfileImage(null);
       }
@@ -88,7 +87,7 @@ const FriendList = () => {
 
   const handleNicknameSave = async () => {
     const nk = nickname.trim();
-    if (!nk) return;
+    if (!nk) return; // 입력 안 하면 저장 X
     await api.post("/login", { nickname: nk });
   };
 
@@ -145,7 +144,6 @@ const FriendList = () => {
     setRyoChatOpen(false);
     setJaeheeChatOpen(false);
 
-    // 캐릭터별 전용 채팅 열기
     if (selected.name === "사쿠야") setSakuyaChatOpen(true);
     else if (selected.name === "유우시") setYushiChatOpen(true);
     else if (selected.name === "리쿠") setRikuChatOpen(true);
@@ -171,7 +169,7 @@ const FriendList = () => {
     !yushiChatOpen &&
     !rikuChatOpen &&
     !sionChatOpen &&
-    !ryoChatOpen  &&
+    !ryoChatOpen &&
     !jaeheeChatOpen;
 
   return (
@@ -334,7 +332,7 @@ const FriendList = () => {
         <SionChat onBack={closeChatRoom} userName={nickname} />
       ) : ryoChatOpen ? (
         <RyoChat onBack={closeChatRoom} userName={nickname} />
-        ) : jaeheeChatOpen ? (
+      ) : jaeheeChatOpen ? (
         <JaeheeChat onBack={closeChatRoom} userName={nickname} />
       ) : (
         <ChatRoom chat={activeChat} onClose={closeChatRoom} />
