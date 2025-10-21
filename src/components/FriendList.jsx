@@ -61,7 +61,6 @@ const FriendList = () => {
         setNickname(nickname || "");
         setPhone(phoneNumber || "");
         setProfileImage(imageUrl || null);
-        if (nickname) sessionStorage.setItem("userName", nickname);
       } catch {
         setNickname("닉네임");
         setPhone("");
@@ -91,7 +90,6 @@ const FriendList = () => {
     const nk = nickname.trim();
     if (!nk) return;
     await api.post("/login", { nickname: nk });
-    localStorage.setItem("userName", nk);
   };
 
   const handlePhoneSave = async () => {
