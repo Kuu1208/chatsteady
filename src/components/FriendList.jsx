@@ -61,7 +61,7 @@ const FriendList = () => {
         setNickname(nickname || "");
         setPhone(phoneNumber || "");
         setProfileImage(imageUrl || null);
-        if (nickname) localStorage.setItem("userName", nickname);
+        if (nickname) sessionStorage.setItem("userName", nickname);
       } catch {
         setNickname("닉네임");
         setPhone("");
