@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ReactComponent as BackIcon } from "../icons/iconmonstr-arrow-64.svg";
 import { ReactComponent as GalleryIcon } from "../icons/iconmonstr-picture-5.svg";
-import axios from "axios";
+import { api } from "../api";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -83,32 +83,38 @@ const YushiChat = ({ onBack, userName }) => {
 
   useEffect(() => {
     fetchMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchMessages = async () => {
-    const res = await axios.get("http://localhost:4000/messages", { withCredentials: true });
-    const yushi = res.data.find((m) => m.name === "유우시");
-    const initial = yushi?.messages || [];
-    if (initial.length === 0) {
-      const first = { sender: "유우시", text: "밥 먹었어?", time: getCurrentFormattedTime() };
-      setMessages([first]);
-      await saveYushiMessage(first);
-    } else {
-      setMessages(initial);
-    }
-  };
-
   const saveYushiMessage = async (msg) => {
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      {
+    try {
+      await api.post("/messages/respond", {
         name: "유우시",
         response: msg.text || "",
         image: msg.image || "",
-        fromNpc: true, // 서버가 NPC로 처리(fromNpc/fromSakuya/fromYushi 중 아무거나 true 면 OK)
-      },
-      { withCredentials: true }
-    );
+        fromNpc: true, // 서버가 NPC로 처리
+      });
+    } catch (e) {
+      console.error("saveYushiMessage 실패:", e);
+    }
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const res = await api.get("/messages");
+      const yushi = res.data.find((m) => m.name === "유우시");
+      const initial = yushi?.messages || [];
+      if (initial.length === 0) {
+        const first = { sender: "유우시", text: "밥 먹었어?", time: getCurrentFormattedTime() };
+        setMessages([first]);
+        await saveYushiMessage(first);
+      } else {
+        setMessages(initial);
+      }
+    } catch (e) {
+      console.error("메시지 불러오기 실패:", e);
+      setMessages([]);
+    }
   };
 
   const handleResponse = async (text) => {
@@ -116,17 +122,20 @@ const YushiChat = ({ onBack, userName }) => {
     const newMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, newMsg]);
 
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "유우시", response: text },
-      { withCredentials: true }
-    );
+    try {
+      await api.post("/messages/respond", { name: "유우시", response: text });
+    } catch (e) {
+      console.error("사용자 응답 저장 실패:", e);
+    }
 
     setTimeout(() => setIsLoading(true), 300);
 
     const replies = replyMap[text] || [];
-    const textReplies = replies.filter((r) => !r.startsWith("imageSet"));
-    const imageSetKey = replies.find((r) => r.startsWith("imageSet"));
+    const textReplies = replies.filter(
+      (r) => !(r || "").toString().trim().toLowerCase().startsWith("imageset")
+    );
+    const imageSetKey =
+      (replies.find((r) => (r || "").toString().trim().toLowerCase().startsWith("imageset")) || "").trim();
 
     // 텍스트
     textReplies.forEach((replyText, idx) => {
@@ -138,8 +147,8 @@ const YushiChat = ({ onBack, userName }) => {
       }, 1000 + idx * 1500);
     });
 
-    // 장소 이미지
-    if (imageSetKey === "imageSet10") {
+    // 장소 이미지 (imageSet10)
+    if (imageSetKey === "imageset10" || imageSetKey === "imageSet10") {
       const imagePaths = ["/images/유우시_수족관.jpg", "/images/유우시_초밥.jpg", "/images/유우시_카페.jpg"];
       imagePaths.forEach((path, idx) => {
         setTimeout(async () => {
@@ -148,7 +157,11 @@ const YushiChat = ({ onBack, userName }) => {
           await saveYushiMessage(reply);
           if (idx === imagePaths.length - 1) {
             setTimeout(async () => {
-              const followUp1 = { sender: "유우시", text: "수족관이랑 초밥집이랑 카페 중에", time: getCurrentFormattedTime() };
+              const followUp1 = {
+                sender: "유우시",
+                text: "수족관이랑 초밥집이랑 카페 중에",
+                time: getCurrentFormattedTime(),
+              };
               const followUp2 = { sender: "유우시", text: "어디로 불러내야 좋을까", time: getCurrentFormattedTime() };
               setMessages((prev) => [...prev, followUp1, followUp2]);
               await saveYushiMessage(followUp1);
@@ -159,8 +172,8 @@ const YushiChat = ({ onBack, userName }) => {
         }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
     }
-    // 옷 이미지
-    else if (imageSetKey === "imageSet20") {
+    // 옷 이미지 (imageSet20)
+    else if (imageSetKey === "imageset20" || imageSetKey === "imageSet20") {
       const imagePaths = [
         "/images/유우시_옷/유우시_니트.jpg",
         "/images/유우시_옷/유우시_스투시.jpg",
@@ -181,35 +194,36 @@ const YushiChat = ({ onBack, userName }) => {
           }
         }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
+    } else if (textReplies.length === 0) {
+      setIsLoading(false);
     }
   };
 
   const lastMsg = messages[messages.length - 1];
-  const isConfessionStep =
-    lastMsg?.sender !== "me" && lastMsg?.text === "고백 멘트도 추천해줄 수 있어?";
+  const isConfessionStep = lastMsg?.sender !== "me" && lastMsg?.text === "고백 멘트도 추천해줄 수 있어?";
 
   const handleConfessionSubmit = async () => {
-    const text = confessionInput.trim();
+    const text = (confessionInput || "").trim();
     if (!text) return;
 
     const now = getCurrentFormattedTime();
     const myMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, myMsg]);
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "유우시", response: text },
-      { withCredentials: true }
-    );
+
+    try {
+      await api.post("/messages/respond", { name: "유우시", response: text });
+    } catch (e) {
+      console.error("고백 멘트 저장 실패:", e);
+    }
 
     setConfessionInput("");
     setIsLoading(true);
 
     const clean = text.replace(/^["'“”]|["'“”]$/g, "");
 
+    const safeName = (displayName || "").trim();
     const msg1 = { sender: "유우시", text: "알았어", time: getCurrentFormattedTime() };
-    const msg2 = (userName || "").trim()
-      ? { sender: "유우시", text: `${(userName || "").trim()}`, time: getCurrentFormattedTime() }
-      : null;
+    const msg2 = safeName ? { sender: "유우시", text: safeName, time: getCurrentFormattedTime() } : null;
     const msg3 = { sender: "유우시", text: clean, time: getCurrentFormattedTime() };
 
     const t1 = 800;
@@ -232,7 +246,7 @@ const YushiChat = ({ onBack, userName }) => {
       setMessages((p) => [...p, msg3]);
       await saveYushiMessage(msg3);
 
-      if (selectedPlace && selectedOutfit) {
+      if (selectedPlace && typeof selectedOutfit === "string") {
         const msg4 = {
           sender: "유우시",
           text: `내일 ${outfitLabel(selectedOutfit)} 차림으로 ${placeLabel(selectedPlace)}에서 기다릴게`,
@@ -252,17 +266,19 @@ const YushiChat = ({ onBack, userName }) => {
   const getChoices = () => {
     const last = messages[messages.length - 1];
     if (!last || last.sender === "me") return [];
-    if (messages.length === 1 && last.text?.trim() === "밥 먹었어?") {
+    if (messages.length === 1 && (last.text || "").trim() === "밥 먹었어?") {
       return ["왜?", "아니 아직", "사주게?"];
     }
     return choiceMap[last.text] || [];
   };
 
   const handleChoice = (text) => {
+    // 장소 선택
     if (text === "무조건 수족관이죠") setSelectedPlace("수족관");
     if (text === "회전초밥 나쁘지 않을 듯") setSelectedPlace("초밥집");
     if (text === "그래도 카페가 젤 무난하다") setSelectedPlace("카페");
 
+    // 의상 선택
     if (text === "니트 귀엽다") setSelectedOutfit("니트");
     if (text === "간지나게 스투시") setSelectedOutfit("스투시");
     if (text === "새로운 시도로 캡 모자") setSelectedOutfit("캡 모자");
@@ -382,15 +398,17 @@ const YushiChat = ({ onBack, userName }) => {
             <div className="w-5 h-5" />
           </div>
           <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-2 p-2">
-            {messages.filter((m) => m.image).map((msg, idx) => (
-              <img
-                key={idx}
-                src={msg.image}
-                alt={`이미지 ${idx}`}
-                className="object-cover w-full h-24 rounded cursor-pointer"
-                onClick={() => setSelectedImage(msg.image)}
-              />
-            ))}
+            {messages
+              .filter((m) => m.image)
+              .map((msg, idx) => (
+                <img
+                  key={idx}
+                  src={msg.image}
+                  alt={`이미지 ${idx}`}
+                  className="object-cover w-full h-24 rounded cursor-pointer"
+                  onClick={() => setSelectedImage(msg.image)}
+                />
+              ))}
           </div>
         </div>
       )}

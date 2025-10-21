@@ -1,8 +1,7 @@
-// src/components/ryoChat.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { ReactComponent as BackIcon } from "../icons/iconmonstr-arrow-64.svg";
 import { ReactComponent as GalleryIcon } from "../icons/iconmonstr-picture-5.svg";
-import axios from "axios";
+import { api } from "../api";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -82,28 +81,32 @@ const RyoChat = ({ onBack, userName }) => {
   }, []);
 
   const saveRyoMessage = async (msg) => {
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      {
+    try {
+      await api.post("/messages/respond", {
         name: "료",
         response: msg.text || "",
         image: msg.image || "",
         fromNpc: true,
-      },
-      { withCredentials: true }
-    );
+      });
+    } catch (e) {
+      console.error("saveRyoMessage 실패:", e);
+    }
   };
 
   const fetchMessages = async () => {
-    const res = await axios.get("http://localhost:4000/messages", { withCredentials: true });
-    const ryo = res.data.find((m) => m.name === "료");
-    const initial = ryo?.messages || [];
-    if (initial.length === 0) {
-      const first = { sender: "료", text: "뭐함?", time: getCurrentFormattedTime() };
-      setMessages([first]);
-      await saveRyoMessage(first);
-    } else {
-      setMessages(initial);
+    try {
+      const res = await api.get("/messages");
+      const ryo = res.data.find((m) => m.name === "료");
+      const initial = ryo?.messages || [];
+      if (initial.length === 0) {
+        const first = { sender: "료", text: "뭐함?", time: getCurrentFormattedTime() };
+        setMessages([first]);
+        await saveRyoMessage(first);
+      } else {
+        setMessages(initial);
+      }
+    } catch (e) {
+      console.error("메시지 불러오기 실패:", e);
     }
   };
 
@@ -112,17 +115,20 @@ const RyoChat = ({ onBack, userName }) => {
     const newMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, newMsg]);
 
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "료", response: text },
-      { withCredentials: true }
-    );
+    try {
+      await api.post("/messages/respond", { name: "료", response: text });
+    } catch (e) {
+      console.error("응답 저장 실패:", e);
+    }
 
     setTimeout(() => setIsLoading(true), 300);
 
     const replies = replyMap[text] || [];
-    const textReplies = replies.filter((r) => !(r || "").toString().trim().toLowerCase().startsWith("imageset"));
-    const imageSetKey = (replies.find((r) => (r || "").toString().trim().toLowerCase().startsWith("imageset")) || "").trim();
+    const textReplies = replies.filter(
+      (r) => !(r || "").toString().trim().toLowerCase().startsWith("imageset")
+    );
+    const imageSetKey =
+      (replies.find((r) => (r || "").toString().trim().toLowerCase().startsWith("imageset")) || "").trim();
 
     // 텍스트
     if (textReplies.length > 0) {
@@ -136,7 +142,7 @@ const RyoChat = ({ onBack, userName }) => {
       });
     }
 
-    // 이미지 세트
+    // 장소 이미지 세트
     if (imageSetKey === "imageset50" || imageSetKey === "imageSet50") {
       const imagePaths = ["/images/료_디저트.jpg", "/images/료_빙수.jpg", "/images/료_스카.jpg"];
       imagePaths.forEach((path, idx) => {
@@ -156,7 +162,9 @@ const RyoChat = ({ onBack, userName }) => {
           }
         }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
-    } else if (imageSetKey === "imageset40" || imageSetKey === "imageSet40") {
+    }
+    // 옷 이미지 세트
+    else if (imageSetKey === "imageset40" || imageSetKey === "imageSet40") {
       const imagePaths = [
         "/images/료_옷/료_니트.jpg",
         "/images/료_옷/료_비니.jpg",
@@ -184,8 +192,7 @@ const RyoChat = ({ onBack, userName }) => {
   };
 
   const lastMsg = messages[messages.length - 1];
-  const isConfessionStep =
-    lastMsg?.sender !== "me" && lastMsg?.text === "뭐라고 말하는게 나아?";
+  const isConfessionStep = lastMsg?.sender !== "me" && lastMsg?.text === "뭐라고 말하는게 나아?";
 
   const handleConfessionSubmit = async () => {
     const text = confessionInput.trim();
@@ -194,21 +201,21 @@ const RyoChat = ({ onBack, userName }) => {
     const now = getCurrentFormattedTime();
     const myMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, myMsg]);
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "료", response: text },
-      { withCredentials: true }
-    );
+
+    try {
+      await api.post("/messages/respond", { name: "료", response: text });
+    } catch (e) {
+      console.error("고백 멘트 저장 실패:", e);
+    }
 
     setConfessionInput("");
     setIsLoading(true);
 
     const clean = text.replace(/^["'“”]|["'“”]$/g, "");
 
+    const safeName = (displayName || "").trim();
     const msg1 = { sender: "료", text: "골라줘서 고맙당", time: getCurrentFormattedTime() };
-    const msg2 = displayName
-      ? { sender: "료", text: displayName, time: getCurrentFormattedTime() }
-      : null;
+    const msg2 = safeName ? { sender: "료", text: safeName, time: getCurrentFormattedTime() } : null;
     const msg3 = { sender: "료", text: clean, time: getCurrentFormattedTime() };
 
     const t1 = 800;

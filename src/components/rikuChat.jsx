@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ReactComponent as BackIcon } from "../icons/iconmonstr-arrow-64.svg";
 import { ReactComponent as GalleryIcon } from "../icons/iconmonstr-picture-5.svg";
-import axios from "axios";
+import { api } from "../api";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -82,32 +82,37 @@ const RikuChat = ({ onBack, userName }) => {
 
   useEffect(() => {
     fetchMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchMessages = async () => {
-    const res = await axios.get("http://localhost:4000/messages", { withCredentials: true });
-    const riku = res.data.find((m) => m.name === "리쿠");
-    const initial = riku?.messages || [];
-    if (initial.length === 0) {
-      const first = { sender: "리쿠", text: "지금 뭐해 ~", time: getCurrentFormattedTime() };
-      setMessages([first]);
-      await saveRikuMessage(first);
-    } else {
-      setMessages(initial);
-    }
-  };
-
   const saveRikuMessage = async (msg) => {
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      {
+    try {
+      await api.post("/messages/respond", {
         name: "리쿠",
         response: msg.text || "",
         image: msg.image || "",
         fromNpc: true,
-      },
-      { withCredentials: true }
-    );
+      });
+    } catch (e) {
+      console.error("saveRikuMessage 실패:", e);
+    }
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const res = await api.get("/messages");
+      const riku = res.data.find((m) => m.name === "리쿠");
+      const initial = riku?.messages || [];
+      if (initial.length === 0) {
+        const first = { sender: "리쿠", text: "지금 뭐해 ~", time: getCurrentFormattedTime() };
+        setMessages([first]);
+        await saveRikuMessage(first);
+      } else {
+        setMessages(initial);
+      }
+    } catch (e) {
+      console.error("메시지 불러오기 실패:", e);
+    }
   };
 
   const handleResponse = async (text) => {
@@ -115,34 +120,37 @@ const RikuChat = ({ onBack, userName }) => {
     const newMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, newMsg]);
 
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "리쿠", response: text },
-      { withCredentials: true }
-    );
+    try {
+      await api.post("/messages/respond", { name: "리쿠", response: text });
+    } catch (e) {
+      console.error("응답 저장 실패:", e);
+    }
 
     setTimeout(() => setIsLoading(true), 300);
 
     const replies = replyMap[text] || [];
-    const textReplies = replies.filter((r) => !r.startsWith("imageSet"));
-    const imageSetKey = replies.find((r) => r.startsWith("imageSet"));
+    const textReplies = replies.filter(
+      (r) => !(r || "").toString().trim().toLowerCase().startsWith("imageset")
+    );
+    const imageSetKey = (replies.find((r) =>
+      (r || "").toString().trim().toLowerCase().startsWith("imageset")
+    ) || "").trim();
 
     // 텍스트
-    textReplies.forEach((replyText, idx) => {
-      setTimeout(async () => {
-        const reply = { sender: "리쿠", text: replyText, time: getCurrentFormattedTime() };
-        setMessages((prev) => [...prev, reply]);
-        await saveRikuMessage(reply);
-        if (idx === textReplies.length - 1 && !imageSetKey) setIsLoading(false);
-      }, 1000 + idx * 1500);
-    });
+    if (textReplies.length > 0) {
+      textReplies.forEach((replyText, idx) => {
+        setTimeout(async () => {
+          const reply = { sender: "리쿠", text: replyText, time: getCurrentFormattedTime() };
+          setMessages((prev) => [...prev, reply]);
+          await saveRikuMessage(reply);
+          if (idx === textReplies.length - 1 && !imageSetKey) setIsLoading(false);
+        }, 1000 + idx * 1500);
+      });
+    }
 
-    if (imageSetKey === "imageSet20") {
-      const imagePaths = [
-        "/images/리쿠_놀이동산.jpg",
-        "/images/리쿠_라멘.jpg",
-        "/images/리쿠_카페.jpg",
-      ];
+    // 장소 이미지
+    if (imageSetKey === "imageset20" || imageSetKey === "imageSet20") {
+      const imagePaths = ["/images/리쿠_놀이동산.jpg", "/images/리쿠_라멘.jpg", "/images/리쿠_카페.jpg"];
       imagePaths.forEach((path, idx) => {
         setTimeout(async () => {
           const reply = { sender: "리쿠", image: path, time: getCurrentFormattedTime() };
@@ -160,10 +168,12 @@ const RikuChat = ({ onBack, userName }) => {
           }
         }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
-    } else if (imageSetKey === "imageSet30") {
+    }
+    // 옷 이미지
+    else if (imageSetKey === "imageset30" || imageSetKey === "imageSet30") {
       const imagePaths = [
         "/images/리쿠_옷/리쿠_뿔테.jpg",
-        "/images/리쿠_옷/리쿠_안경1.jpg", // 실제 파일명 확인!
+        "/images/리쿠_옷/리쿠_안경1.jpg", // 실제 파일명 확인 필요
         "/images/리쿠_옷/리쿠_안경X.jpg",
       ];
       imagePaths.forEach((path, idx) => {
@@ -181,6 +191,8 @@ const RikuChat = ({ onBack, userName }) => {
           }
         }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
+    } else if (textReplies.length === 0) {
+      setIsLoading(false);
     }
   };
 
@@ -195,11 +207,12 @@ const RikuChat = ({ onBack, userName }) => {
     const now = getCurrentFormattedTime();
     const myMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, myMsg]);
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "리쿠", response: text },
-      { withCredentials: true }
-    );
+
+    try {
+      await api.post("/messages/respond", { name: "리쿠", response: text });
+    } catch (e) {
+      console.error("고백 멘트 저장 실패:", e);
+    }
 
     setConfessionInput("");
     setIsLoading(true);
@@ -253,7 +266,7 @@ const RikuChat = ({ onBack, userName }) => {
     const last = messages[messages.length - 1];
     if (!last || last.sender === "me") return [];
     // 첫 멘트 선택지
-    if (messages.length === 1 && last.text?.trim() === "지금 뭐해 ~") {
+    if (messages.length === 1 && (last.text || "").trim() === "지금 뭐해 ~") {
       return ["아무것도 안해", "그냥 핸드폰 하는 중", "왜?"];
     }
     return choiceMap[last.text] || [];
@@ -385,15 +398,17 @@ const RikuChat = ({ onBack, userName }) => {
             <div className="w-5 h-5" />
           </div>
           <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-2 p-2">
-            {messages.filter((m) => m.image).map((msg, idx) => (
-              <img
-                key={idx}
-                src={msg.image}
-                alt={`이미지 ${idx}`}
-                className="object-cover w-full h-24 rounded cursor-pointer"
-                onClick={() => setSelectedImage(msg.image)}
-              />
-            ))}
+            {messages
+              .filter((m) => m.image)
+              .map((msg, idx) => (
+                <img
+                  key={idx}
+                  src={msg.image}
+                  alt={`이미지 ${idx}`}
+                  className="object-cover w-full h-24 rounded cursor-pointer"
+                  onClick={() => setSelectedImage(msg.image)}
+                />
+              ))}
           </div>
         </div>
       )}

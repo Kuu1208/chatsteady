@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ReactComponent as BackIcon } from "../icons/iconmonstr-arrow-64.svg";
 import { ReactComponent as GalleryIcon } from "../icons/iconmonstr-picture-5.svg";
-import axios from "axios";
+import { api } from "../api";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -39,7 +39,7 @@ const replyMap = {
   "아무것도 안해": ["아 그래?", "그러면", "나랑 잠깐 얘기 좀 해줘"],
 
   "어어 말해봐": ["사실은", "내일 좋아하는 애한테", "고백하려고 하는데", "잠깐만 도와줘"],
-  "싫어": ["ㅋㅋㅋㅋㅋㅋ아니", "아 내 말 좀 들어봐","내일 좋아하는 애한테", "고백하려고 하는데", "잠깐만 도와줘"],
+  "싫어": ["ㅋㅋㅋㅋㅋㅋ아니", "아 내 말 좀 들어봐", "내일 좋아하는 애한테", "고백하려고 하는데", "잠깐만 도와줘"],
   "음 그래": ["귀찮은 것 같은데 ㅋㅋㅋㅋ", "아니 그냥", "내일 좋아하는 애한테", "고백하려고 하는데", "잠깐만 도와줘"],
 
   "응응 나만 믿어!": ["ㅋㅋㅋ고마워", "아 일단", "imageSet20"],
@@ -48,9 +48,9 @@ const replyMap = {
   "아직 더우니까 아이스크림": ["알았엉", "옷은 어때?", "imageSet30"],
   "인형 싫어하는 애 못봤다 인형 고": ["ㅋㅋㅋ그런가??", "옷은 어때?", "imageSet30"],
 
-  "넌 퍼컬이 검정이야": ["그치","아 근데 뭐라고 말하지","너무 떨리는데", "추천 좀 해주라"],
-  "나시로 가자": ["오케", "아 근데 뭐라고 말하지","너무 떨리는데", "추천 좀 해주라"],
-  "흰 티셔츠가 젤 나음": ["마지못해 고르는 느낌이다 어째", "아 근데 뭐라고 말하지","너무 떨리는데", "추천 좀 해주라"],
+  "넌 퍼컬이 검정이야": ["그치", "아 근데 뭐라고 말하지", "너무 떨리는데", "추천 좀 해주라"],
+  "나시로 가자": ["오케", "아 근데 뭐라고 말하지", "너무 떨리는데", "추천 좀 해주라"],
+  "흰 티셔츠가 젤 나음": ["마지못해 고르는 느낌이다 어째", "아 근데 뭐라고 말하지", "너무 떨리는데", "추천 좀 해주라"],
 };
 
 const SionChat = ({ onBack, userName }) => {
@@ -74,32 +74,37 @@ const SionChat = ({ onBack, userName }) => {
 
   useEffect(() => {
     fetchMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ 시온 메시지 저장 함수 (없어서 에러났던 부분)
   const saveSionMessage = async (msg) => {
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      {
+    try {
+      await api.post("/messages/respond", {
         name: "시온",
         response: msg.text || "",
         image: msg.image || "",
         fromNpc: true,
-      },
-      { withCredentials: true }
-    );
+      });
+    } catch (e) {
+      console.error("saveSionMessage 실패:", e);
+    }
   };
 
   const fetchMessages = async () => {
-    const res = await axios.get("http://localhost:4000/messages", { withCredentials: true });
-    const sion = res.data.find((m) => m.name === "시온");
-    const initial = sion?.messages || [];
-    if (initial.length === 0) {
-      const first = { sender: "시온", text: "뭐해?", time: getCurrentFormattedTime() };
-      setMessages([first]);
-      await saveSionMessage(first);
-    } else {
-      setMessages(initial);
+    try {
+      const res = await api.get("/messages");
+      const sion = res.data.find((m) => m.name === "시온");
+      const initial = sion?.messages || [];
+      if (initial.length === 0) {
+        const first = { sender: "시온", text: "뭐해?", time: getCurrentFormattedTime() };
+        setMessages([first]);
+        await saveSionMessage(first);
+      } else {
+        setMessages(initial);
+      }
+    } catch (e) {
+      console.error("메시지 불러오기 실패:", e);
+      setMessages([]);
     }
   };
 
@@ -108,17 +113,20 @@ const SionChat = ({ onBack, userName }) => {
     const newMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, newMsg]);
 
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "시온", response: text },
-      { withCredentials: true }
-    );
+    try {
+      await api.post("/messages/respond", { name: "시온", response: text });
+    } catch (e) {
+      console.error("사용자 응답 저장 실패:", e);
+    }
 
     setTimeout(() => setIsLoading(true), 300);
 
     const replies = replyMap[text] || [];
-    const textReplies = replies.filter((r) => !r.startsWith("imageSet"));
-    const imageSetKey = replies.find((r) => r.startsWith("imageSet"));
+    const textReplies = replies.filter(
+      (r) => !(r || "").toString().trim().toLowerCase().startsWith("imageset")
+    );
+    const imageSetKey =
+      (replies.find((r) => (r || "").toString().trim().toLowerCase().startsWith("imageset")) || "").trim();
 
     // 텍스트
     textReplies.forEach((replyText, idx) => {
@@ -130,12 +138,9 @@ const SionChat = ({ onBack, userName }) => {
       }, 1000 + idx * 1500);
     });
 
-    if (imageSetKey === "imageSet20") {
-      const imagePaths = [
-        "/images/시온_놀이공원.jpg",
-        "/images/시온_아이스.jpg",
-        "/images/시온_인형가게.jpg",
-      ];
+    // 장소 후보 이미지
+    if (imageSetKey === "imageset20" || imageSetKey === "imageSet20") {
+      const imagePaths = ["/images/시온_놀이공원.jpg", "/images/시온_아이스.jpg", "/images/시온_인형가게.jpg"];
       imagePaths.forEach((path, idx) => {
         setTimeout(async () => {
           const reply = { sender: "시온", image: path, time: getCurrentFormattedTime() };
@@ -143,7 +148,11 @@ const SionChat = ({ onBack, userName }) => {
           await saveSionMessage(reply);
           if (idx === imagePaths.length - 1) {
             setTimeout(async () => {
-              const followUp1 = { sender: "시온", text: "놀이공원, 아이스크림 가게, 인형가게 중에서", time: getCurrentFormattedTime() };
+              const followUp1 = {
+                sender: "시온",
+                text: "놀이공원, 아이스크림 가게, 인형가게 중에서",
+                time: getCurrentFormattedTime(),
+              };
               const followUp2 = { sender: "시온", text: "어디가 좋을 것 같아??", time: getCurrentFormattedTime() };
               setMessages((prev) => [...prev, followUp1, followUp2]);
               await saveSionMessage(followUp1);
@@ -153,7 +162,9 @@ const SionChat = ({ onBack, userName }) => {
           }
         }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
-    } else if (imageSetKey === "imageSet30") {
+    }
+    // 옷 후보 이미지
+    else if (imageSetKey === "imageset30" || imageSetKey === "imageSet30") {
       const imagePaths = [
         "/images/시온_옷/시온_검정티.jpg",
         "/images/시온_옷/시온_나시.jpg",
@@ -174,35 +185,36 @@ const SionChat = ({ onBack, userName }) => {
           }
         }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
+    } else if (textReplies.length === 0) {
+      setIsLoading(false);
     }
   };
 
   const lastMsg = messages[messages.length - 1];
-  const isConfessionStep =
-    lastMsg?.sender !== "me" && lastMsg?.text === "추천 좀 해주라";
+  const isConfessionStep = lastMsg?.sender !== "me" && lastMsg?.text === "추천 좀 해주라";
 
   const handleConfessionSubmit = async () => {
-    const text = confessionInput.trim();
+    const text = (confessionInput || "").trim();
     if (!text) return;
 
     const now = getCurrentFormattedTime();
     const myMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, myMsg]);
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "시온", response: text },
-      { withCredentials: true }
-    );
+
+    try {
+      await api.post("/messages/respond", { name: "시온", response: text });
+    } catch (e) {
+      console.error("고백 멘트 저장 실패:", e);
+    }
 
     setConfessionInput("");
     setIsLoading(true);
 
     const clean = text.replace(/^["'“”]|["'“”]$/g, "");
 
+    const safeName = (displayName || "").trim();
     const msg1 = { sender: "시온", text: "ㅋㅋㅋㅋㅋ알았어", time: getCurrentFormattedTime() };
-    const msg2 = (displayName || "").trim()
-      ? { sender: "시온", text: `${(displayName || "").trim()}`, time: getCurrentFormattedTime() }
-      : null;
+    const msg2 = safeName ? { sender: "시온", text: safeName, time: getCurrentFormattedTime() } : null;
     const msg3 = { sender: "시온", text: clean, time: getCurrentFormattedTime() };
 
     const t1 = 800;
@@ -225,10 +237,10 @@ const SionChat = ({ onBack, userName }) => {
       setMessages((p) => [...p, msg3]);
       await saveSionMessage(msg3);
 
-      if (selectedPlace && selectedOutfit !== null) {
+      if (selectedPlace && typeof selectedOutfit === "string") {
         const msg4 = {
           sender: "시온",
-          text: `내일 ${outfitLabel(selectedOutfit)} 입고 ${placeLabel(selectedPlace)}에서 기다리고 있을게. 나 만나줘`,
+          text: `내일 ${outfitLabel(selectedOutfit)} 입고 ${placeLabel(selectedPlace)}에서 기다리고 있을게.`,
           time: getCurrentFormattedTime(),
         };
         setTimeout(async () => {
@@ -245,8 +257,7 @@ const SionChat = ({ onBack, userName }) => {
   const getChoices = () => {
     const last = messages[messages.length - 1];
     if (!last || last.sender === "me") return [];
-    // 첫 멘트 선택지
-    if (messages.length === 1 && last.text?.trim() === "뭐해?") {
+    if (messages.length === 1 && (last.text || "").trim() === "뭐해?") {
       return ["왜염", "아무것도 안해"];
     }
     return choiceMap[last.text] || [];
@@ -378,15 +389,17 @@ const SionChat = ({ onBack, userName }) => {
             <div className="w-5 h-5" />
           </div>
           <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-2 p-2">
-            {messages.filter((m) => m.image).map((msg, idx) => (
-              <img
-                key={idx}
-                src={msg.image}
-                alt={`이미지 ${idx}`}
-                className="object-cover w-full h-24 rounded cursor-pointer"
-                onClick={() => setSelectedImage(msg.image)}
-              />
-            ))}
+            {messages
+              .filter((m) => m.image)
+              .map((msg, idx) => (
+                <img
+                  key={idx}
+                  src={msg.image}
+                  alt={`이미지 ${idx}`}
+                  className="object-cover w-full h-24 rounded cursor-pointer"
+                  onClick={() => setSelectedImage(msg.image)}
+                />
+              ))}
           </div>
         </div>
       )}

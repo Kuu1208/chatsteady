@@ -1,8 +1,7 @@
-// src/components/jaeheeChat.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { ReactComponent as BackIcon } from "../icons/iconmonstr-arrow-64.svg";
 import { ReactComponent as GalleryIcon } from "../icons/iconmonstr-picture-5.svg";
-import axios from "axios";
+import { api } from "../api";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -82,28 +81,32 @@ const JaeheeChat = ({ onBack, userName }) => {
   }, []);
 
   const saveJaeheeMessage = async (msg) => {
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      {
+    try {
+      await api.post("/messages/respond", {
         name: "재희",
         response: msg.text || "",
         image: msg.image || "",
         fromNpc: true,
-      },
-      { withCredentials: true }
-    );
+      });
+    } catch (e) {
+      console.error("saveJaeheeMessage 실패:", e);
+    }
   };
 
   const fetchMessages = async () => {
-    const res = await axios.get("http://localhost:4000/messages", { withCredentials: true });
-    const jaehee = res.data.find((m) => m.name === "재희");
-    const initial = jaehee?.messages || [];
-    if (initial.length === 0) {
-      const first = { sender: "재희", text: "바빠?", time: getCurrentFormattedTime() };
-      setMessages([first]);
-      await saveJaeheeMessage(first);
-    } else {
-      setMessages(initial);
+    try {
+      const res = await api.get("/messages");
+      const jaehee = res.data.find((m) => m.name === "재희");
+      const initial = jaehee?.messages || [];
+      if (initial.length === 0) {
+        const first = { sender: "재희", text: "바빠?", time: getCurrentFormattedTime() };
+        setMessages([first]);
+        await saveJaeheeMessage(first);
+      } else {
+        setMessages(initial);
+      }
+    } catch (e) {
+      console.error("메시지 불러오기 실패:", e);
     }
   };
 
@@ -112,11 +115,11 @@ const JaeheeChat = ({ onBack, userName }) => {
     const newMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, newMsg]);
 
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "재희", response: text },
-      { withCredentials: true }
-    );
+    try {
+      await api.post("/messages/respond", { name: "재희", response: text });
+    } catch (e) {
+      console.error("응답 저장 실패:", e);
+    }
 
     setTimeout(() => setIsLoading(true), 300);
 
@@ -200,11 +203,12 @@ const JaeheeChat = ({ onBack, userName }) => {
     const now = getCurrentFormattedTime();
     const myMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, myMsg]);
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "재희", response: text },
-      { withCredentials: true }
-    );
+
+    try {
+      await api.post("/messages/respond", { name: "재희", response: text });
+    } catch (e) {
+      console.error("고백 멘트 저장 실패:", e);
+    }
 
     setConfessionInput("");
     setIsLoading(true);

@@ -1,80 +1,298 @@
-[
-  {
-    "name": "시온",
-    "image": "/images/시온.jpg",
-    "message": "뭐해?",
-    "unreadCount": 0,
-    "messages": [
-      {
-        "sender": "시온",
-        "text": "뭐해?",
-        "read": true
-      }
-    ]
-  },
-  {
-    "name": "리쿠",
-    "image": "/images/리쿠.jpg",
-    "message": "지금 뭐해 ~",
-    "unreadCount": 1,
-    "messages": [
-      {
-        "sender": "리쿠",
-        "text": "지금 뭐해 ~",
-        "read": false
-      }
-    ]
-  },
-  {
-    "name": "유우시",
-    "image": "/images/유우시.jpg",
-    "message": "밥 먹었어?",
-    "unreadCount": 1,
-    "messages": [
-      {
-        "sender": "유우시",
-        "text": "밥 먹었어?",
-        "read": false
-      }
-    ]
-  },
-  {
-    "name": "재희",
-    "image": "/images/재희.jpg",
-    "message": "바빠?",
-    "unreadCount": 1,
-    "messages": [
-      {
-        "sender": "재희",
-        "text": "바빠?",
-        "read": false
-      }
-    ]
-  },
-  {
-    "name": "료",
-    "image": "/images/료.jpg",
-    "message": "뭐함?",
-    "unreadCount": 1,
-    "messages": [
-      {
-        "sender": "료",
-        "text": "뭐함?",
-        "read": false
-      }
-    ]
-  },
-  {
-    "name": "사쿠야",
-    "image": "/images/사쿠야.jpg",
-    "message": "빵 먹으러 갈래?",
-    "unreadCount": 1,
-    "messages": [
-      {
-        "sender": "사쿠야",
-        "text": "빵 먹으러 갈래?",
-        "read": false
-      }
-    ]
-  }
-]
+{
+  "guest": [
+    {
+      "name": "시온",
+      "message": "뭐해?",
+      "image": "/images/시온.jpg",
+      "time": "오후 1:47",
+      "unreadCount": 1,
+      "messages": [
+        {
+          "sender": "시온",
+          "text": "뭐해?",
+          "time": "오후 1:47",
+          "read": false
+        }
+      ]
+    },
+    {
+      "name": "리쿠",
+      "message": "지금 뭐해 ~",
+      "image": "/images/리쿠.jpg",
+      "time": "오후 1:47",
+      "unreadCount": 1,
+      "messages": [
+        {
+          "sender": "리쿠",
+          "text": "지금 뭐해 ~",
+          "time": "오후 1:47",
+          "read": false
+        }
+      ]
+    },
+    {
+      "name": "유우시",
+      "message": "밥 먹었어?",
+      "image": "/images/유우시.jpg",
+      "time": "오후 1:47",
+      "unreadCount": 1,
+      "messages": [
+        {
+          "sender": "유우시",
+          "text": "밥 먹었어?",
+          "time": "오후 1:47",
+          "read": false
+        }
+      ]
+    },
+    {
+      "name": "재희",
+      "message": "내일 안경 차림으로 노래방에서 기다리고 있을게.",
+      "image": "/images/재희.jpg",
+      "time": "오후 1:48",
+      "unreadCount": 0,
+      "messages": [
+        {
+          "sender": "재희",
+          "text": "바빠?",
+          "time": "오후 1:47",
+          "read": true
+        },
+        {
+          "sender": "me",
+          "text": "바빠 죽겠다... 왜",
+          "time": "오후 1:47",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "에이",
+          "time": "오후 1:47",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "진짜 잠깐만",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "시간 좀 내줘..🥲",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "me",
+          "text": "ㅋㅋㅋㅋㅋ알았어",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "사실은",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "내일 좋아하는 애한테",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "고백하려고 하는데",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "잠깐만 도와주면 안돼?",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "me",
+          "text": "응응 나만 믿어!",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "고마워용",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "일단은",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "image": "/images/재희_노래방.jpg",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "image": "/images/재희_동물원.jpg",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "image": "/images/재희_쇼핑.jpg",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "노래방이랑 동물원이랑 쇼핑몰 중에서",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "어디서 만나자고 하는게 좋아??",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "me",
+          "text": "너 노래 잘하니까 노래방",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "그럴까 ㅎㅎ",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "옷은 어때?",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "image": "/images/재희_옷/재희_맨투맨.jpg",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "image": "/images/재희_옷/재희_안경.jpg",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "image": "/images/재희_옷/재희_져지.jpg",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "옷은 어때?",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "me",
+          "text": "안경 잘어울려",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "알았엉",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "아 근데 뭐라고 말하지",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "너무 떨리는데",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "뭐라고 말하는게 좋아?",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "me",
+          "text": "ddkdmkd",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "진짜 고마워ㅎㅎ",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "재봉이",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "ddkdmkd",
+          "time": "오후 1:48",
+          "read": true
+        },
+        {
+          "sender": "재희",
+          "text": "내일 안경 차림으로 노래방에서 기다리고 있을게.",
+          "time": "오후 1:48",
+          "read": true
+        }
+      ]
+    },
+    {
+      "name": "료",
+      "message": "뭐함?",
+      "image": "/images/료.jpg",
+      "time": "오후 1:47",
+      "unreadCount": 1,
+      "messages": [
+        {
+          "sender": "료",
+          "text": "뭐함?",
+          "time": "오후 1:47",
+          "read": false
+        }
+      ]
+    },
+    {
+      "name": "사쿠야",
+      "message": "빵 먹으러 갈래?",
+      "image": "/images/사쿠야.jpg",
+      "time": "오후 1:47",
+      "unreadCount": 1,
+      "messages": [
+        {
+          "sender": "사쿠야",
+          "text": "빵 먹으러 갈래?",
+          "time": "오후 1:47",
+          "read": false
+        }
+      ]
+    }
+  ]
+}

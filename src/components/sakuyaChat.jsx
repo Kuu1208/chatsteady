@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ReactComponent as BackIcon } from "../icons/iconmonstr-arrow-64.svg";
 import { ReactComponent as GalleryIcon } from "../icons/iconmonstr-picture-5.svg";
-import axios from "axios";
+import { api } from "../api";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -35,11 +35,11 @@ const choiceMap = {
   "내일 고백하려고 하는데 ..": ["헐헐?", "어떻게 하려고", "내가 도와줘야 해?"],
 
   "너가 나 좀 도와줘": ["응응 나만 믿어!"],
-  "나 좀 도와줄 수 있어?" : ["응응 나만 믿어!"],
+  "나 좀 도와줄 수 있어?": ["응응 나만 믿어!"],
 
   "어디로 불러내야 좋을까": ["빵 가게가 좋을 듯?", "솜사탕 가게가 귀여움", "카페가 젤 무난하지"],
 
-  "옷은 뭐 입고 갈까?" : ["귀엽게 노랑색 옷?", "셔츠가 나을 듯", "줄무늬가 제일 나아"],
+  "옷은 뭐 입고 갈까?": ["귀엽게 노랑색 옷?", "셔츠가 나을 듯", "줄무늬가 제일 나아"],
 };
 
 const replyMap = {
@@ -86,7 +86,6 @@ const replyMap = {
   "솜사탕 가게가 귀여움": ["역시 솜사탕이지", "옷은 뭐 입고 갈까?", "imageSet1"],
   "카페가 젤 무난하지": ["그치? 나도 그렇게 생각했어", "옷은 뭐 입고 갈까?", "imageSet1"],
 
-  // 옷 선택 뒤 고백 멘트 받기
   "귀엽게 노랑색 옷?": ["그치? 나도 그렇게 생각했어", "고백 멘트는 뭐라고 하는게 좋지"],
   "셔츠가 나을 듯": ["그래? 알았어", "고백 멘트는 뭐라고 하는게 좋지"],
   "줄무늬가 제일 나아": ["오키", "고백 멘트는 뭐라고 하는게 좋지"],
@@ -100,10 +99,9 @@ const SakuyaChat = ({ onBack, userName }) => {
   const [confessionInput, setConfessionInput] = useState("");
 
   // 선택 추적
-  const [selectedPlace, setSelectedPlace] = useState(null);   // "카페" | "빵 가게" | "솜사탕 가게"
+  const [selectedPlace, setSelectedPlace] = useState(null); // "카페" | "빵 가게" | "솜사탕 가게"
   const [selectedOutfit, setSelectedOutfit] = useState(null); // "노랑" | "셔츠" | "줄무늬"
 
-  // 표시할 이름 (prop > localStorage > 없음이면 빈문자열)
   const displayName = useMemo(() => {
     try {
       const saved = (localStorage.getItem("userName") || "").trim();
@@ -115,27 +113,38 @@ const SakuyaChat = ({ onBack, userName }) => {
 
   useEffect(() => {
     fetchMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchMessages = async () => {
-    const res = await axios.get("http://localhost:4000/messages", {
-      withCredentials: true,
-    });
-    const sakuya = res.data.find((m) => m.name === "사쿠야");
-    setMessages(sakuya?.messages || []);
+    try {
+      const res = await api.get("/messages");
+      const sakuya = res.data.find((m) => m.name === "사쿠야");
+      const initial = sakuya?.messages || [];
+      if (initial.length === 0) {
+        const first = { sender: "사쿠야", text: "뭐해?", time: getCurrentFormattedTime() };
+        setMessages([first]);
+        await saveSakuyaMessage(first);
+      } else {
+        setMessages(initial);
+      }
+    } catch (e) {
+      console.error("메시지 불러오기 실패:", e);
+      setMessages([]);
+    }
   };
 
   const saveSakuyaMessage = async (msg) => {
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      {
+    try {
+      await api.post("/messages/respond", {
         name: "사쿠야",
         response: msg.text || "",
         image: msg.image || "",
         fromSakuya: true,
-      },
-      { withCredentials: true }
-    );
+      });
+    } catch (e) {
+      console.error("saveSakuyaMessage 실패:", e);
+    }
   };
 
   const handleResponse = async (text) => {
@@ -143,17 +152,20 @@ const SakuyaChat = ({ onBack, userName }) => {
     const newMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, newMsg]);
 
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "사쿠야", response: text },
-      { withCredentials: true }
-    );
+    try {
+      await api.post("/messages/respond", { name: "사쿠야", response: text });
+    } catch (e) {
+      console.error("사용자 응답 저장 실패:", e);
+    }
 
     setTimeout(() => setIsLoading(true), 300);
 
     const replies = replyMap[text] || [];
-    const textReplies = replies.filter((r) => !r.startsWith("imageSet"));
-    const imageSetKey = replies.find((r) => r.startsWith("imageSet"));
+    const textReplies = replies.filter(
+      (r) => !(r || "").toString().trim().toLowerCase().startsWith("imageset")
+    );
+    const imageSetKey =
+      (replies.find((r) => (r || "").toString().trim().toLowerCase().startsWith("imageset")) || "").trim();
 
     // 텍스트 응답
     textReplies.forEach((replyText, idx) => {
@@ -166,7 +178,7 @@ const SakuyaChat = ({ onBack, userName }) => {
     });
 
     // 장소 후보 이미지
-    if (imageSetKey === "imageSet") {
+    if (imageSetKey === "imageset" || imageSetKey === "imageSet") {
       const imagePaths = ["/images/사쿠야_빵.jpg", "/images/사쿠야_솜사탕.jpg", "/images/사쿠야_커피.jpg"];
       imagePaths.forEach((path, idx) => {
         setTimeout(async () => {
@@ -188,7 +200,7 @@ const SakuyaChat = ({ onBack, userName }) => {
     }
 
     // 옷 후보 이미지
-    if (imageSetKey === "imageSet1") {
+    if (imageSetKey === "imageset1" || imageSetKey === "imageSet1") {
       const imagePaths = [
         "/images/사쿠_옷/사쿠야_노랑.jpg",
         "/images/사쿠_옷/사쿠야_셔츠.jpg",
@@ -209,6 +221,8 @@ const SakuyaChat = ({ onBack, userName }) => {
           }
         }, 1000 + textReplies.length * 1500 + idx * 1500);
       });
+    } else if (textReplies.length === 0) {
+      setIsLoading(false);
     }
   };
 
@@ -217,33 +231,33 @@ const SakuyaChat = ({ onBack, userName }) => {
   const isConfessionStep =
     lastMsg?.sender === "사쿠야" && lastMsg?.text === "고백 멘트는 뭐라고 하는게 좋지";
 
-    const handleConfessionSubmit = async () => {
-    const text = confessionInput.trim();
+  const handleConfessionSubmit = async () => {
+    const text = (confessionInput || "").trim();
     if (!text) return;
 
     const now = getCurrentFormattedTime();
     const myMsg = { sender: "me", text, time: now };
     setMessages((prev) => [...prev, myMsg]);
-    await axios.post(
-      "http://localhost:4000/messages/respond",
-      { name: "사쿠야", response: text },
-      { withCredentials: true }
-    );
+
+    try {
+      await api.post("/messages/respond", { name: "사쿠야", response: text });
+    } catch (e) {
+      console.error("고백 멘트 저장 실패:", e);
+    }
 
     setConfessionInput("");
     setIsLoading(true);
 
     const clean = text.replace(/^["'“”]|["'“”]$/g, "");
 
+    const safeName = (displayName || "").trim();
     const msg1 = { sender: "사쿠야", text: "알았어", time: getCurrentFormattedTime() };
-    const msg2 = displayName
-      ? { sender: "사쿠야", text: `${displayName}`, time: getCurrentFormattedTime() }
-      : null;
+    const msg2 = safeName ? { sender: "사쿠야", text: safeName, time: getCurrentFormattedTime() } : null;
     const msg3 = { sender: "사쿠야", text: clean, time: getCurrentFormattedTime() };
 
     const t1 = 800;
-    const t2 = displayName ? 1600 : null;
-    const t3 = displayName ? 2400 : 1600;
+    const t2 = msg2 ? 1600 : null;
+    const t3 = msg2 ? 2400 : 1600;
 
     setTimeout(async () => {
       setMessages((p) => [...p, msg1]);
@@ -261,7 +275,7 @@ const SakuyaChat = ({ onBack, userName }) => {
       setMessages((p) => [...p, msg3]);
       await saveSakuyaMessage(msg3);
 
-      if (selectedPlace && selectedOutfit) {
+      if (selectedPlace && typeof selectedOutfit === "string") {
         const msg4 = {
           sender: "사쿠야",
           text: `내일 ${placeLabel(selectedPlace)}에서 ${outfitLabel(selectedOutfit)} 입고 기다릴게`,
@@ -279,16 +293,20 @@ const SakuyaChat = ({ onBack, userName }) => {
   };
 
   const getChoices = () => {
-    if (!lastMsg || lastMsg.sender !== "사쿠야") return [];
-    return choiceMap[lastMsg.text] || (messages.length <= 1 ? ["갑자기? ㅋㅋ", "뭔데?", "무슨 빵"] : []);
+    if (!lastMsg || lastMsg.sender !== "사쿠야") {
+      // 대화 시작 직후(첫 메시지 없거나 다른 상태) 기본 선택지
+      return messages.length <= 1 ? ["갑자기? ㅋㅋ", "뭔데?", "무슨 빵"] : [];
+    }
+    return choiceMap[lastMsg.text] || [];
   };
 
-  // 선택 시 장소/옷 상태 기록
   const handleChoice = (text) => {
+    // 장소 기록
     if (text === "카페가 젤 무난하지") setSelectedPlace("카페");
     if (text === "빵 가게가 좋을 듯?") setSelectedPlace("빵 가게");
     if (text === "솜사탕 가게가 귀여움") setSelectedPlace("솜사탕 가게");
 
+    // 옷 기록
     if (text === "귀엽게 노랑색 옷?") setSelectedOutfit("노랑");
     if (text === "셔츠가 나을 듯") setSelectedOutfit("셔츠");
     if (text === "줄무늬가 제일 나아") setSelectedOutfit("줄무늬");
@@ -391,15 +409,17 @@ const SakuyaChat = ({ onBack, userName }) => {
             <div className="w-5 h-5" />
           </div>
           <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-2 p-2">
-            {messages.filter((m) => m.image).map((msg, idx) => (
-              <img
-                key={idx}
-                src={msg.image}
-                alt={`이미지 ${idx}`}
-                className="object-cover w-full h-24 rounded cursor-pointer"
-                onClick={() => setSelectedImage(msg.image)}
-              />
-            ))}
+            {messages
+              .filter((m) => m.image)
+              .map((msg, idx) => (
+                <img
+                  key={idx}
+                  src={msg.image}
+                  alt={`이미지 ${idx}`}
+                  className="object-cover w-full h-24 rounded cursor-pointer"
+                  onClick={() => setSelectedImage(msg.image)}
+                />
+              ))}
           </div>
         </div>
       )}
