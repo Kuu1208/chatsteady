@@ -1,77 +1,75 @@
 // server.js
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const mongoose = require("mongoose");
 
 const app = express();
 const port = process.env.PORT || 4000;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 빌드 디렉토리 자동 탐지: ① 환경변수 ② ./build ③ ./client/build
-// ─────────────────────────────────────────────────────────────────────────────
-const pickClientBuildDir = () => {
-  if (process.env.CLIENT_BUILD_DIR && fs.existsSync(process.env.CLIENT_BUILD_DIR)) {
-    return process.env.CLIENT_BUILD_DIR;
-  }
-  const rootBuild = path.join(__dirname, "build");
-  if (fs.existsSync(rootBuild)) return rootBuild;
-
-  const clientBuild = path.join(__dirname, "client", "build");
-  if (fs.existsSync(clientBuild)) return clientBuild;
-
-  return null;
-};
-const CLIENT_BUILD_DIR = pickClientBuildDir();
-
-// 프록시(리버스 프록시 환경)에서 req.protocol 계산 제대로 하려면
-app.set("trust proxy", 1);
-
-// 업로드 정적 URL prefix 절대경로 베이스(옵션)
-// 예: https://chatsteady.onrender.com
-const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || "";
-
-// CORS 허용 오리진
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:5173",
-  process.env.FRONTEND_URL, // 예: https://chatsteady.vercel.app
-].filter(Boolean);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 미들웨어
-// ─────────────────────────────────────────────────────────────────────────────
-app.use(
-  cors({
-    origin(origin, cb) {
-      // 같은 도메인(SSR/브라우저 내 fetch) 요청은 origin이 비어 있음 → 허용
-      if (!origin) return cb(null, true);
-      if (allowedOrigins.includes(origin)) return cb(null, true);
-      // 배포 단일 도메인에서 쓰면 사실상 문제 없음. 필요하면 여기서 차단 로직 추가.
-      return cb(null, true);
-    },
-    credentials: true,
-  })
-);
-app.use(cookieParser());
-app.use(express.json());
-
-// 업로드 폴더(정적 서빙)
-const UPLOAD_DIR = path.join(__dirname, "uploads");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-app.use("/uploads", express.static(UPLOAD_DIR));
-
-// 클라이언트 빌드 정적 서빙
-if (CLIENT_BUILD_DIR) {
-  app.use(express.static(CLIENT_BUILD_DIR));
+/* =========================
+   0. MongoDB 연결
+========================= */
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  console.error("❌ MONGODB_URI 환경변수를 설정하세요.");
+  process.exit(1);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 유틸
-// ─────────────────────────────────────────────────────────────────────────────
+mongoose.set("strictQuery", false);
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err.message);
+    process.exit(1);
+  });
+
+/* =========================
+   1. 스키마/모델
+========================= */
+const MessageSchema = new mongoose.Schema(
+  {
+    sender: String,            // "me" | 캐릭터명
+    text: String,
+    image: String,
+    time: String,              // "오전 10:02" 같은 형식
+    read: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const ChatSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },        // 캐릭터명 (시온, 리쿠...)
+    message: String,                                // 리스트에 보이는 마지막 미리보기 텍스트
+    image: String,                                  // 캐릭터 썸네일 경로
+    time: String,                                   // 마지막 대화 시간
+    unreadCount: { type: Number, default: 0 },
+    messages: { type: [MessageSchema], default: [] }
+  },
+  { _id: false }
+);
+
+const UserSchema = new mongoose.Schema(
+  {
+    nickname: { type: String, unique: true, required: true },
+    phoneNumber: String,
+    imageUrl: String,
+    chats: { type: [ChatSchema], default: [] }
+  },
+  { timestamps: true }
+);
+
+const User = mongoose.model("User", UserSchema);
+
+/* =========================
+   2. 유틸/기본값
+========================= */
 const getCurrentFormattedTime = () => {
   const now = new Date();
   const hour = now.getHours();
@@ -79,14 +77,6 @@ const getCurrentFormattedTime = () => {
   const period = hour < 12 ? "오전" : "오후";
   const formattedHour = hour % 12 || 12;
   return `${period} ${formattedHour}:${minute}`;
-};
-
-// 요청 호스트 기반 절대 URL 생성 (PUBLIC_BASE_URL이 없으면)
-const makeAbsoluteUrl = (req, relativePath) => {
-  if (PUBLIC_BASE_URL) return `${PUBLIC_BASE_URL}${relativePath}`;
-  const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
-  const host = req.get("host");
-  return `${proto}://${host}${relativePath}`;
 };
 
 const createDefaultMessages = () => {
@@ -143,168 +133,217 @@ const createDefaultMessages = () => {
   ];
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 상태 (메모리 + 파일 저장)
-// ─────────────────────────────────────────────────────────────────────────────
-const messagesByUser = {}; // { [nickname]: Array<chat> }
-const MESSAGES_FILE = path.join(__dirname, "messages.json");
-
-const loadMessagesFromFile = () => {
-  try {
-    if (fs.existsSync(MESSAGES_FILE)) {
-      const raw = fs.readFileSync(MESSAGES_FILE, "utf-8");
-      const data = JSON.parse(raw);
-      Object.assign(messagesByUser, data);
-    }
-  } catch (e) {
-    console.error("messages.json 로드 실패:", e.message);
+// nickname으로 유저 문서 보장 (없으면 생성)
+async function ensureUser(nickname) {
+  const key = nickname || "guest";
+  let user = await User.findOne({ nickname: key });
+  if (!user) {
+    user = await User.create({
+      nickname: key,
+      phoneNumber: "",
+      imageUrl: "",
+      chats: createDefaultMessages(),
+    });
   }
-};
-const saveMessagesToFile = () => {
-  try {
-    fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messagesByUser, null, 2), "utf-8");
-  } catch (e) {
-    console.error("messages.json 저장 실패:", e.message);
-  }
-};
+  return user;
+}
 
-// 서버 시작 시 기존 대화 로드
-loadMessagesFromFile();
+/* =========================
+   3. 미들웨어
+========================= */
+const isProd = process.env.NODE_ENV === "production";
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://chatsteady-k522.vercel.app"; // Vercel 프론트 URL
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:5173",
+  FRONTEND_URL
+].filter(Boolean);
 
-// 간단한 유저 프로필(메모리)
-let userData = {
-  nickname: "",
-  phoneNumber: "",
-  imageUrl: "",
-};
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(null, true); // 필요 시 차단 로직으로 바꿔도 됨
+    },
+    credentials: true,
+  })
+);
+app.use(cookieParser());
+app.use(express.json());
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 업로드
-// ─────────────────────────────────────────────────────────────────────────────
+/* 파일 업로드(프로필 이미지) */
+const UPLOAD_DIR = path.join(__dirname, "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+app.use("/uploads", express.static(UPLOAD_DIR));
+
 const upload = multer({
   storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-    filename: (req, file, cb) => {
+    destination: (_, __, cb) => cb(null, UPLOAD_DIR),
+    filename: (_, file, cb) => {
       const ext = path.extname(file.originalname);
       cb(null, Date.now() + ext);
     },
   }),
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 라우트
-// ─────────────────────────────────────────────────────────────────────────────
+/* 클라이언트 빌드(선택) - 같은 서버에서 정적서빙할 때만 */
+const CLIENT_BUILD_DIR = process.env.CLIENT_BUILD_DIR || path.join(__dirname, "client", "build");
+const hasClientBuild = fs.existsSync(CLIENT_BUILD_DIR);
+if (hasClientBuild) {
+  app.use(express.static(CLIENT_BUILD_DIR));
+}
+
+/* 요청에서 닉네임 쿠키 파기 */
+function getNickname(req) {
+  return (req.cookies?.nickname || "").trim() || "guest";
+}
+
+/* 절대 URL 생성 (업로드 파일 반환용) */
+function makeAbsoluteUrl(req, relativePath) {
+  if (process.env.PUBLIC_BASE_URL) return `${process.env.PUBLIC_BASE_URL}${relativePath}`;
+  const base = `${req.protocol}://${req.get("host")}`;
+  return `${base}${relativePath}`;
+}
+
+/* =========================
+   4. 라우트
+========================= */
+// 헬스체크
 app.get("/health", (_, res) => res.json({ ok: true, time: Date.now() }));
 
-app.get("/me", (req, res) => {
-  res.json(userData);
+// 현재 로그인 유저 정보
+app.get("/me", async (req, res) => {
+  const nickname = getNickname(req);
+  const user = await ensureUser(nickname);
+  res.json({
+    nickname: user.nickname,
+    phoneNumber: user.phoneNumber,
+    imageUrl: user.imageUrl,
+  });
 });
 
-app.post("/login", (req, res) => {
+// 로그인 -> nickname 쿠키 심기
+app.post("/login", async (req, res) => {
   const { nickname } = req.body || {};
-  userData.nickname = (nickname || "").trim();
+  const nk = (nickname || "").trim() || "guest";
 
-  const key = userData.nickname || "guest";
-  if (!messagesByUser[key]) {
-    messagesByUser[key] = createDefaultMessages();
-  }
-  saveMessagesToFile();
+  const cookieOptions = {
+    httpOnly: false,                  // 프론트에서 읽게 할거면 false (이미 그렇게 쓰고 있음)
+    secure: isProd,                   // https 환경에서만 쿠키 전송
+    sameSite: isProd ? "none" : "lax",
+    maxAge: 1000 * 60 * 60 * 24 * 365, // 1년
+  };
+  res.cookie("nickname", nk, cookieOptions);
+  await ensureUser(nk);
   res.json({ success: true });
 });
 
-app.post("/profile/image", upload.single("image"), (req, res) => {
+// 프로필 이미지 업로드
+app.post("/profile/image", upload.single("image"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file" });
+  const nickname = getNickname(req);
+  const user = await ensureUser(nickname);
+
   const filePath = `/uploads/${req.file.filename}`;
-  userData.imageUrl = makeAbsoluteUrl(req, filePath); // 절대 URL 반환
-  res.json({ imageUrl: userData.imageUrl });
+  const imageUrl = makeAbsoluteUrl(req, filePath);
+
+  user.imageUrl = imageUrl;
+  await user.save();
+
+  res.json({ imageUrl });
 });
 
-app.post("/profile/phone", (req, res) => {
-  const { phone } = req.body || {};
-  userData.phoneNumber = phone || "";
+// 전화번호 저장
+app.post("/profile/phone", async (req, res) => {
+  const nickname = getNickname(req);
+  const user = await ensureUser(nickname);
+
+  user.phoneNumber = (req.body?.phone || "").trim();
+  await user.save();
+
   res.json({ success: true });
 });
 
-app.get("/messages", (req, res) => {
-  const key = userData.nickname || "guest";
-  if (!messagesByUser[key]) {
-    messagesByUser[key] = createDefaultMessages();
-  }
-  res.json(messagesByUser[key]);
+// 메시지 리스트
+app.get("/messages", async (req, res) => {
+  const nickname = getNickname(req);
+  const user = await ensureUser(nickname);
+  res.json(user.chats || []);
 });
 
-app.post("/messages/read", (req, res) => {
-  const key = userData.nickname || "guest";
+// 읽음 처리
+app.post("/messages/read", async (req, res) => {
+  const nickname = getNickname(req);
   const { name } = req.body || {};
-  if (!messagesByUser[key]) return res.status(400).json({ error: "User not found" });
+  const user = await ensureUser(nickname);
 
-  messagesByUser[key] = messagesByUser[key].map((m) =>
-    m.name === name
+  user.chats = (user.chats || []).map((c) =>
+    c.name === name
       ? {
-          ...m,
+          ...c.toObject(),
           unreadCount: 0,
-          messages: (m.messages || []).map((msg) => ({ ...msg, read: true })),
+          messages: (c.messages || []).map((m) => ({ ...m, read: true })),
         }
-      : m
+      : c
   );
 
-  saveMessagesToFile();
+  await user.save();
   res.json({ success: true });
 });
 
-app.post("/messages/respond", (req, res) => {
+// 메시지 저장 (사용자/캐릭터 통합)
+app.post("/messages/respond", async (req, res) => {
+  const nickname = getNickname(req);
   const { name, response, image, fromSakuya, fromYushi, fromNpc } = req.body || {};
-  const key = userData.nickname || "guest";
+  const user = await ensureUser(nickname);
   const now = getCurrentFormattedTime();
 
-  if (!messagesByUser[key]) return res.status(400).json({ error: "User not found" });
-  const chat = messagesByUser[key].find((m) => m.name === name);
-  if (!chat) return res.status(404).json({ error: "Chat not found" });
+  const idx = (user.chats || []).findIndex((c) => c.name === name);
+  if (idx === -1) return res.status(404).json({ error: "Chat not found" });
 
-  // NPC 메시지
+  const chat = user.chats[idx];
+
+  // NPC (캐릭터) 메시지
   if (fromNpc || fromSakuya || fromYushi) {
     const npcMsg = {
       sender: name,
       ...(response && { text: response }),
       ...(image && { image }),
       time: now,
+      read: false,
     };
     chat.messages.push(npcMsg);
     chat.message = response || "사진을 보냈습니다";
     chat.time = now;
-    saveMessagesToFile();
-    return res.json({ success: true });
+    chat.unreadCount = Math.max(0, (chat.unreadCount || 0)); // 필요시 조정
+  } else {
+    // 사용자 메시지
+    chat.messages.push({ sender: "me", text: response, time: now, read: true });
+    chat.message = response;
+    chat.time = now;
   }
 
-  // 사용자 메시지
-  chat.messages.push({ sender: "me", text: response, time: now });
-  chat.message = response;
-  chat.time = now;
+  user.chats[idx] = chat;
+  await user.save();
 
-  saveMessagesToFile();
   res.json({ success: true });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SPA 라우팅 (클라이언트 빌드가 있는 경우에만)
-// ─────────────────────────────────────────────────────────────────────────────
-if (CLIENT_BUILD_DIR) {
+/* SPA 라우팅(선택) */
+if (hasClientBuild) {
   app.get("*", (req, res) => {
     res.sendFile(path.join(CLIENT_BUILD_DIR, "index.html"));
   });
-} else {
-  // 빌드 없으면 404(JSON)로 응답 (API만 제공하는 모드)
-  app.get("*", (req, res) => {
-    res.status(404).json({ error: "No client build found. API only." });
-  });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+/* =========================
+   5. 서버 시작
+========================= */
 app.listen(port, () => {
   console.log(`✅ Server listening at http://localhost:${port}`);
-  if (CLIENT_BUILD_DIR) {
+  if (hasClientBuild) {
     console.log(`📦 Serving client from: ${CLIENT_BUILD_DIR}`);
-  } else {
-    console.log("ℹ️ No client build found. API-only mode.");
   }
 });

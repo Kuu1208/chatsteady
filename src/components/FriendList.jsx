@@ -3,13 +3,15 @@ import { ReactComponent as UserIcon } from "../icons/iconmonstr-user-6.svg";
 import { ReactComponent as ChatIcon } from "../icons/iconmonstr-speech-bubble-3.svg";
 import { ReactComponent as HeadphonesIcon } from "../icons/iconmonstr-headphones-2.svg";
 import { ReactComponent as CloseIcon } from "../icons/iconmonstr-x-mark-lined.svg";
+// import axios from "axios";
+import { api } from "../api";
+
 import ChatRoom from "./ChatRoom";
 import SakuyaChat from "./sakuyaChat";
 import YushiChat from "./yushiChat";
 import RikuChat from "./rikuChat";
 import SionChat from "./sionChat";
 import RyoChat from "./ryoChat";
-import { api } from "../api";
 
 const getCurrentFormattedTime = () => {
   const now = new Date();
@@ -83,16 +85,16 @@ const FriendList = () => {
     setUnreadTotal(total);
   }, [messages]);
 
-  const handleNicknameSave = () => {
+  const handleNicknameSave = async () => {
     const nk = nickname.trim();
     if (!nk) return;
-    api.post("/login", { nickname: nk });
+    await api.post("/login", { nickname: nk });
     localStorage.setItem("userName", nk);
   };
 
-  const handlePhoneSave = () => {
+  const handlePhoneSave = async () => {
     if (!phone.trim()) return;
-    api.post("/profile/phone", { phone });
+    await api.post("/profile/phone", { phone });
   };
 
   const handleImageUpload = async (e) => {
@@ -130,7 +132,8 @@ const FriendList = () => {
 
     const updated = [...messages];
     updated[index].unreadCount = 0;
-    updated[index].messages = updated[index].messages?.map((msg) => ({ ...msg, read: true })) || [];
+    updated[index].messages =
+      updated[index].messages?.map((msg) => ({ ...msg, read: true })) || [];
     setMessages(updated);
 
     // 모든 플래그 초기화
@@ -160,12 +163,20 @@ const FriendList = () => {
   };
 
   const isHome =
-    !activeChat && !sakuyaChatOpen && !yushiChatOpen && !rikuChatOpen && !sionChatOpen && !ryoChatOpen;
+    !activeChat &&
+    !sakuyaChatOpen &&
+    !yushiChatOpen &&
+    !rikuChatOpen &&
+    !sionChatOpen &&
+    !ryoChatOpen;
 
   return (
     <div className="relative flex flex-col h-screen w-full max-w-[390px] mx-auto bg-white text-sm font-medium border-x border-gray-200">
       <audio ref={audioRef} autoPlay loop>
-        <source src="/audio/NCT WISH (엔시티 위시) Steady Official Audio.mp3" type="audio/mpeg" />
+        <source
+          src="/audio/NCT WISH (엔시티 위시) Steady Official Audio.mp3"
+          type="audio/mpeg"
+        />
       </audio>
 
       {isHome ? (
@@ -174,7 +185,10 @@ const FriendList = () => {
             <span className="text-lg font-semibold">
               {activeTab === "friends" ? "친구" : "채팅"}
             </span>
-            <HeadphonesIcon className="w-5 h-5 text-gray-700 cursor-pointer" onClick={toggleAudio} />
+            <HeadphonesIcon
+              className="w-5 h-5 text-gray-700 cursor-pointer"
+              onClick={toggleAudio}
+            />
           </div>
 
           {activeTab === "friends" && (
@@ -182,7 +196,11 @@ const FriendList = () => {
               <div className="flex items-center">
                 <label htmlFor="profile-upload" className="cursor-pointer">
                   {profileImage ? (
-                    <img src={profileImage} alt="프로필" className="w-10 h-10 rounded-full object-cover mr-3" />
+                    <img
+                      src={profileImage}
+                      alt="프로필"
+                      className="w-10 h-10 rounded-full object-cover mr-3"
+                    />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-blue-300 mr-3" />
                   )}
@@ -209,7 +227,9 @@ const FriendList = () => {
                   placeholder="전화번호 입력"
                   className="outline-none bg-transparent text-blue-500 w-[100px] text-xs"
                 />
-                <button onClick={handlePhoneSave} className="ml-1 font-bold">+</button>
+                <button onClick={handlePhoneSave} className="ml-1 font-bold">
+                  +
+                </button>
               </div>
             </div>
           )}
@@ -227,7 +247,11 @@ const FriendList = () => {
                     onClick={() => setSelectedFriend(f)}
                   >
                     <div className="flex items-center">
-                      <img src={f.image} alt={f.name} className="w-10 h-10 rounded-full object-cover mr-3" />
+                      <img
+                        src={f.image}
+                        alt={f.name}
+                        className="w-10 h-10 rounded-full object-cover mr-3"
+                      />
                       <span>{f.name}</span>
                     </div>
                     <div className="border border-blue-300 text-blue-500 rounded-full px-3 py-1 text-xs">
@@ -242,7 +266,11 @@ const FriendList = () => {
                     onClick={() => handleChatClick(idx)}
                   >
                     <div className="flex items-center">
-                      <img src={m.image} alt={m.name} className="w-10 h-10 rounded-full object-cover mr-3" />
+                      <img
+                        src={m.image}
+                        alt={m.name}
+                        className="w-10 h-10 rounded-full object-cover mr-3"
+                      />
                       <div>
                         <div className="font-semibold">{m.name}</div>
                         <div className="text-gray-600 text-xs">{m.message}</div>
@@ -262,17 +290,27 @@ const FriendList = () => {
 
           <div className="flex justify-around items-center py-3 border-t text-xs bg-white">
             <div
-              className={`flex flex-col items-center cursor-pointer ${activeTab === "friends" ? "text-blue-500" : "text-gray-400"}`}
+              className={`flex flex-col items-center cursor-pointer ${
+                activeTab === "friends" ? "text-blue-500" : "text-gray-400"
+              }`}
               onClick={() => setActiveTab("friends")}
             >
-              <UserIcon className="w-6 h-6" fill={activeTab === "friends" ? "#3B82F6" : "#9CA3AF"} />
+              <UserIcon
+                className="w-6 h-6"
+                fill={activeTab === "friends" ? "#3B82F6" : "#9CA3AF"}
+              />
               <span className="mt-1 text-[10px]">친구</span>
             </div>
             <div
-              className={`flex flex-col items-center relative cursor-pointer ${activeTab === "chat" ? "text-blue-500" : "text-gray-400"}`}
+              className={`flex flex-col items-center relative cursor-pointer ${
+                activeTab === "chat" ? "text-blue-500" : "text-gray-400"
+              }`}
               onClick={() => setActiveTab("chat")}
             >
-              <ChatIcon className="w-6 h-6" fill={activeTab === "chat" ? "#3B82F6" : "#9CA3AF"} />
+              <ChatIcon
+                className="w-6 h-6"
+                fill={activeTab === "chat" ? "#3B82F6" : "#9CA3AF"}
+              />
               <span className="mt-1 text-[10px]">채팅</span>
               {unreadTotal > 0 && (
                 <div className="absolute -top-1.5 right-0 bg-red-500 text-white text-[10px] px-1 rounded-full">
@@ -310,7 +348,10 @@ const FriendList = () => {
           }}
         >
           <div className="flex justify-start items-start p-4">
-            <CloseIcon className="w-6 h-6 text-white cursor-pointer" onClick={() => setSelectedFriend(null)} />
+            <CloseIcon
+              className="w-6 h-6 text-white cursor-pointer"
+              onClick={() => setSelectedFriend(null)}
+            />
           </div>
           <div className="flex flex-col items-center justify-center h-[80%] text-white">
             <img
