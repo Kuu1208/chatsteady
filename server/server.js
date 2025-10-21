@@ -117,27 +117,30 @@ const createDefaultMessages = () => {
   ];
 };
 
-// ───────────────────── 세션 (메모리 저장, 파일 저장 없음) ─────────────────────
-// 방문자별 세션 저장소: 창(브라우저) 닫으면 세션쿠키 삭제 → 서버 상태 초기화
 const sessions = {}; // { sid: { userData, messages } }
 
 const ensureSession = (req, res, next) => {
   let { sid } = req.cookies || {};
+
   if (!sid) {
     sid = crypto.randomUUID();
+
     res.cookie("sid", sid, {
       httpOnly: true,
-      secure: isProd,           // 프로덕션=HTTPS 필수
-      sameSite: isProd ? "None" : "Lax", // 크로스사이트 쿠키 허용
-      // maxAge 미설정 → "세션 쿠키" (브라우저 모두 닫으면 삭제)
+      secure: isProd,
+      sameSite: isProd ? "None" : "Lax",
+      
     });
   }
+
+  // 🔹 세션 메모리에 없으면 초기화
   if (!sessions[sid]) {
     sessions[sid] = {
       userData: { nickname: "", phoneNumber: "", imageUrl: "" },
       messages: createDefaultMessages(),
     };
   }
+
   req.session = sessions[sid];
   next();
 };
@@ -223,14 +226,6 @@ app.post("/messages/respond", (req, res) => {
   return res.json({ success: true });
 });
 
-// (디버그) 세션 초기화용 – 필요하면 주석 해제해서 사용
-// app.post("/reset", (req, res) => {
-//   req.session.userData = { nickname: "", phoneNumber: "", imageUrl: "" };
-//   req.session.messages = createDefaultMessages();
-//   res.json({ success: true });
-// });
-
-// SPA 라우팅 (클라 빌드가 있을 때만)
 if (hasClientBuild) {
   app.get("*", (req, res) => {
     res.sendFile(path.join(CLIENT_BUILD_DIR, "index.html"));
