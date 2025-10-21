@@ -1,5 +1,3 @@
-// server.js (전체 교체)
-
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -7,6 +5,9 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+
+process.env.TZ = "Asia/Seoul";
+
 
 const app = express();
 const port = process.env.PORT || 4000;
