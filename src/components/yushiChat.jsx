@@ -72,6 +72,9 @@ const YushiChat = ({ onBack, userName }) => {
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [selectedOutfit, setSelectedOutfit] = useState(null);
 
+  const [confessionSent, setConfessionSent] = useState(false);
+
+
   const displayName = useMemo(() => {
     try {
       const saved = (localStorage.getItem("userName") || "").trim();
@@ -111,6 +114,12 @@ const YushiChat = ({ onBack, userName }) => {
       } else {
         setMessages(initial);
       }
+      const hasConfession = initial.some(msg => 
+          msg.text && msg.text.includes("내일") && msg.text.includes("기다릴게")
+        );
+        if (hasConfession) {
+          setConfessionSent(true);
+        }
     } catch (e) {
       console.error("메시지 불러오기 실패:", e);
       setMessages([]);
@@ -200,9 +209,15 @@ const YushiChat = ({ onBack, userName }) => {
   };
 
   const lastMsg = messages[messages.length - 1];
-  const isConfessionStep = lastMsg?.sender !== "me" && lastMsg?.text === "고백 멘트도 추천해줄 수 있어?";
+  const isConfessionStep = 
+  lastMsg?.sender === "유우시" && lastMsg?.text === "고백 멘트도 추천해줄 수 있어?";
 
-  const handleConfessionSubmit = async () => {
+const handleConfessionSubmit = async () => {
+    // 🔥 추가: 이미 고백 멘트 보냈으면 중복 실행 방지
+    if (confessionSent) {
+      return;
+    }
+
     const text = (confessionInput || "").trim();
     if (!text) return;
 
@@ -218,6 +233,7 @@ const YushiChat = ({ onBack, userName }) => {
 
     setConfessionInput("");
     setIsLoading(true);
+    setConfessionSent(true);
 
     const clean = text.replace(/^["'“”]|["'“”]$/g, "");
 

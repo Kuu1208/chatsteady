@@ -65,6 +65,9 @@ const RyoChat = ({ onBack, userName }) => {
 
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [selectedOutfit, setSelectedOutfit] = useState(null);
+  
+  // 🔥 추가: 고백 멘트 완료 여부 체크
+  const [confessionSent, setConfessionSent] = useState(false);
 
   const displayName = useMemo(() => {
     try {
@@ -104,6 +107,13 @@ const RyoChat = ({ onBack, userName }) => {
         await saveRyoMessage(first);
       } else {
         setMessages(initial);
+        // 🔥 추가: 이미 고백 멘트 완료되었는지 체크
+        const hasConfession = initial.some(msg => 
+          msg.text && msg.text.includes("내일") && msg.text.includes("기다릴게")
+        );
+        if (hasConfession) {
+          setConfessionSent(true);
+        }
       }
     } catch (e) {
       console.error("메시지 불러오기 실패:", e);
@@ -195,6 +205,11 @@ const RyoChat = ({ onBack, userName }) => {
   const isConfessionStep = lastMsg?.sender !== "me" && lastMsg?.text === "뭐라고 말하는게 나아?";
 
   const handleConfessionSubmit = async () => {
+    // 🔥 추가: 이미 고백 멘트 보냈으면 중복 실행 방지
+    if (confessionSent) {
+      return;
+    }
+
     const text = confessionInput.trim();
     if (!text) return;
 
@@ -210,8 +225,9 @@ const RyoChat = ({ onBack, userName }) => {
 
     setConfessionInput("");
     setIsLoading(true);
+    setConfessionSent(true); // 🔥 추가: 완료 플래그 설정
 
-    const clean = text.replace(/^["'“”]|["'“”]$/g, "");
+    const clean = text.replace(/^["'""]|["'""]$/g, "");
 
     const safeName = (displayName || "").trim();
     const msg1 = { sender: "료", text: "골라줘서 고맙당", time: getCurrentFormattedTime() };
@@ -348,7 +364,7 @@ const RyoChat = ({ onBack, userName }) => {
       {/* 하단 입력/선택 */}
       {!isLoading && (isConfessionStep || getChoices().length > 0) && (
         <div className="p-4 border-t">
-          {isConfessionStep ? (
+          {isConfessionStep && !confessionSent ? (
             <>
               <div className="text-center text-xs text-gray-600 mb-2">고백 멘트를 입력해줘!</div>
               <div className="flex gap-2">
@@ -364,7 +380,7 @@ const RyoChat = ({ onBack, userName }) => {
                 </button>
               </div>
             </>
-          ) : (
+          ) : !confessionSent ? (
             <>
               <div className="text-center text-xs text-gray-600 mb-2">어떻게 답장할까요?</div>
               <div className="space-y-2">
@@ -379,7 +395,7 @@ const RyoChat = ({ onBack, userName }) => {
                 ))}
               </div>
             </>
-          )}
+          ) : null}
         </div>
       )}
 

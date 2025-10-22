@@ -63,6 +63,8 @@ const SionChat = ({ onBack, userName }) => {
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [selectedOutfit, setSelectedOutfit] = useState(null);
 
+  const [confessionSent, setConfessionSent] = useState(false);
+
   const displayName = useMemo(() => {
     try {
       const saved = (localStorage.getItem("userName") || "").trim();
@@ -101,6 +103,13 @@ const SionChat = ({ onBack, userName }) => {
         await saveSionMessage(first);
       } else {
         setMessages(initial);
+
+        const hasConfession = initial.some(msg => 
+          msg.text && msg.text.includes("내일") && msg.text.includes("기다릴게")
+        );
+        if (hasConfession) {
+          setConfessionSent(true);
+        }
       }
     } catch (e) {
       console.error("메시지 불러오기 실패:", e);
@@ -191,9 +200,15 @@ const SionChat = ({ onBack, userName }) => {
   };
 
   const lastMsg = messages[messages.length - 1];
-  const isConfessionStep = lastMsg?.sender !== "me" && lastMsg?.text === "추천 좀 해주라";
+  const isConfessionStep =
+   lastMsg?.sender === "시온" && lastMsg?.text === "추천 좀 해주라";
 
-  const handleConfessionSubmit = async () => {
+   const handleConfessionSubmit = async () => {
+    // 🔥 추가: 이미 고백 멘트 보냈으면 중복 실행 방지
+    if (confessionSent) {
+      return;
+    }
+
     const text = (confessionInput || "").trim();
     if (!text) return;
 
@@ -209,6 +224,7 @@ const SionChat = ({ onBack, userName }) => {
 
     setConfessionInput("");
     setIsLoading(true);
+    setConfessionSent(true);
 
     const clean = text.replace(/^["'“”]|["'“”]$/g, "");
 
