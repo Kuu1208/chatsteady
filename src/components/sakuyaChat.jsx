@@ -294,11 +294,13 @@ const SakuyaChat = ({ onBack, userName }) => {
   };
 
   const getChoices = () => {
-    if (!lastMsg || lastMsg.sender !== "사쿠야") {
-      return [];
-    }
-    return choiceMap[lastMsg.text] || [];
-  };
+  const last = messages[messages.length - 1];
+  if (!last || last.sender === "me") return [];
+  if (messages.length === 1 && (last.text || "").trim() === "빵 먹으러 갈래?") {
+    return ["갑자기? ㅋㅋ", "무슨 빵", "뭔데?"];  
+  }
+  return choiceMap[last.text] || [];
+};
 
   const handleChoice = (text) => {
     // 장소 기록
