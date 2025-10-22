@@ -22,6 +22,7 @@ const outfitLabel = (o) => {
 const placeLabel = (p) => p || "";
 
 const choiceMap = {
+  "뭐해?": ["갑자기? ㅋㅋ", "뭔데?", "무슨 빵"],
   "나 요즘 고민이 있는데": ["뭔데?", "너 알아서 해", "고민 들어주면 빵 주나"],
   "나 고민이 있어": ["뭐가 고민인데", "너 알아서 해", "고민 들어주면 빵 주나"],
   "사실은 고민이 있어서 ..": ["뭔데?", "너 알아서 해", "고민 들어주면 빵 주나"],
@@ -99,11 +100,8 @@ const SakuyaChat = ({ onBack, userName }) => {
   const [confessionInput, setConfessionInput] = useState("");
 
   // 선택 추적
-  const [selectedPlace, setSelectedPlace] = useState(null);
-  const [selectedOutfit, setSelectedOutfit] = useState(null);
-  
-  // 🔥 추가: 고백 멘트 완료 여부 체크
-  const [confessionSent, setConfessionSent] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState(null); // "카페" | "빵 가게" | "솜사탕 가게"
+  const [selectedOutfit, setSelectedOutfit] = useState(null); // "노랑" | "셔츠" | "줄무늬"
 
   const displayName = useMemo(() => {
     try {
@@ -130,13 +128,6 @@ const SakuyaChat = ({ onBack, userName }) => {
         await saveSakuyaMessage(first);
       } else {
         setMessages(initial);
-        // 🔥 추가: 이미 고백 멘트 완료되었는지 체크
-        const hasConfession = initial.some(msg => 
-          msg.text && msg.text.includes("내일") && msg.text.includes("기다릴게")
-        );
-        if (hasConfession) {
-          setConfessionSent(true);
-        }
       }
     } catch (e) {
       console.error("메시지 불러오기 실패:", e);
@@ -242,11 +233,6 @@ const SakuyaChat = ({ onBack, userName }) => {
     lastMsg?.sender === "사쿠야" && lastMsg?.text === "고백 멘트는 뭐라고 하는게 좋지";
 
   const handleConfessionSubmit = async () => {
-    // 🔥 추가: 이미 고백 멘트 보냈으면 중복 실행 방지
-    if (confessionSent) {
-      return;
-    }
-
     const text = (confessionInput || "").trim();
     if (!text) return;
 
@@ -262,7 +248,6 @@ const SakuyaChat = ({ onBack, userName }) => {
 
     setConfessionInput("");
     setIsLoading(true);
-    setConfessionSent(true); // 🔥 추가: 완료 플래그 설정
 
     const clean = text.replace(/^["'""]|["'""]$/g, "");
 
@@ -310,8 +295,7 @@ const SakuyaChat = ({ onBack, userName }) => {
 
   const getChoices = () => {
     if (!lastMsg || lastMsg.sender !== "사쿠야") {
-      // 대화 시작 직후(첫 메시지 없거나 다른 상태) 기본 선택지
-      return messages.length <= 1 ? ["갑자기? ㅋㅋ", "뭔데?", "무슨 빵"] : [];
+      return [];
     }
     return choiceMap[lastMsg.text] || [];
   };
@@ -382,7 +366,7 @@ const SakuyaChat = ({ onBack, userName }) => {
       {/* 하단 입력/선택 */}
       {!isLoading && (isConfessionStep || getChoices().length > 0) && (
         <div className="p-4 border-t">
-          {isConfessionStep && !confessionSent ? (
+          {isConfessionStep ? (
             <>
               <div className="text-center text-xs text-gray-600 mb-2">고백 멘트를 입력해줘!</div>
               <div className="flex gap-2">
@@ -398,7 +382,7 @@ const SakuyaChat = ({ onBack, userName }) => {
                 </button>
               </div>
             </>
-          ) : !confessionSent ? (
+          ) : (
             <>
               <div className="text-center text-xs text-gray-600 mb-2">어떻게 답장할까요?</div>
               <div className="space-y-2">
@@ -413,7 +397,7 @@ const SakuyaChat = ({ onBack, userName }) => {
                 ))}
               </div>
             </>
-          ) : null}
+          )}
         </div>
       )}
 
