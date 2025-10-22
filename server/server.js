@@ -42,7 +42,7 @@ app.use(express.json());
 app.use("/uploads", express.static(UPLOAD_DIR));
 if (hasClientBuild) app.use(express.static(CLIENT_BUILD_DIR));
 
-// 유틸: (클라이언트에서 화면에 표시할 시간은 클라이언트가 계산)
+// 유틸: 현재 시간을 한국 형식으로 포맷팅
 const getCurrentFormattedTime = () => {
   const now = new Date();
   const hour = now.getHours();
@@ -52,14 +52,14 @@ const getCurrentFormattedTime = () => {
   return `${period} ${formattedHour}:${minute}`;
 };
 
-// 기본 메시지 생성: time을 빈 문자열로 둠(클라이언트가 접속시점으로 보여주도록)
+// 기본 메시지 생성 (시간은 나중에 설정)
 const createDefaultMessages = () => {
   return [
     {
       name: "시온",
       message: "뭐해?",
       image: "/images/시온.jpg",
-      time: "", // 빈값: 클라이언트에서 접속 시간으로 표시하도록
+      time: "",
       unreadCount: 1,
       messages: [{ sender: "시온", text: "뭐해?", time: "", read: false }],
     },
@@ -123,9 +123,21 @@ const ensureSession = (req, res, next) => {
     });
   }
   if (!sessions[sid]) {
+    // 🔥 수정: 사용자 접속 시간 생성
+    const joinTime = getCurrentFormattedTime();
+    const defaultMsgs = createDefaultMessages();
+    
+    // 🔥 수정: 모든 초기 메시지에 접속 시간 설정
+    defaultMsgs.forEach(chat => {
+      chat.time = joinTime;
+      chat.messages.forEach(msg => {
+        msg.time = joinTime;
+      });
+    });
+    
     sessions[sid] = {
       userData: { nickname: "", phoneNumber: "", imageUrl: "" },
-      messages: createDefaultMessages(),
+      messages: defaultMsgs,
     };
   }
   req.session = sessions[sid];
