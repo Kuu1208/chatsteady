@@ -111,25 +111,30 @@ const createDefaultMessages = () => {
 // 세션 저장 (메모리)
 const sessions = {}; // { sid: { userData: {...}, messages: [...] } }
 
-// 세션 보장 미들웨어: sid 쿠키가 없으면 새로 발급 (세션 쿠키 — maxAge 미설정)
+// 세션 보장 미들웨어: 매번 새로운 세션 생성 (쿠키 사용 안 함)
 const ensureSession = (req, res, next) => {
   let { sid } = req.cookies || {};
+  
+  // 🔥 수정: 항상 새 세션 생성하려면 아래 주석 해제
+  // sid = null; // 강제로 매번 새 세션 생성
+  
   if (!sid) {
     sid = crypto.randomUUID();
-    // 세션 쿠키(브라우저 닫으면 삭제): maxAge **설정하지 않음**
+    // 매우 짧은 수명의 쿠키 (1분)
     res.cookie("sid", sid, {
       httpOnly: true,
-      secure: isProd, // 프로덕션에서는 HTTPS 사용해야 True
+      secure: isProd,
       sameSite: isProd ? "None" : "Lax",
-      // maxAge: undefined -> 세션 쿠키
+      maxAge: 60 * 1000, // 1분 (60초)
     });
   }
+  
   if (!sessions[sid]) {
-    // 🔥 수정: 사용자 접속 시간 생성
+    // 사용자 접속 시간 생성
     const joinTime = getCurrentFormattedTime();
     const defaultMsgs = createDefaultMessages();
     
-    // 🔥 수정: 모든 초기 메시지에 접속 시간 설정
+    // 모든 초기 메시지에 접속 시간 설정
     defaultMsgs.forEach(chat => {
       chat.time = joinTime;
       chat.messages.forEach(msg => {
