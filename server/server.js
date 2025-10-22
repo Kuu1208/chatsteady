@@ -111,35 +111,21 @@ const createDefaultMessages = () => {
 // 세션 저장 (메모리)
 const sessions = {}; // { sid: { userData: {...}, messages: [...], createdAt: timestamp } }
 
-// 세션 자동 정리: 1분 이상 된 세션 삭제
-setInterval(() => {
-  const now = Date.now();
-  const SESSION_TIMEOUT = 60 * 1000; // 1분
-  
-  Object.keys(sessions).forEach(sid => {
-    const session = sessions[sid];
-    if (session.createdAt && (now - session.createdAt) > SESSION_TIMEOUT) {
-      delete sessions[sid];
-      console.log(`🗑️ 세션 삭제: ${sid}`);
-    }
-  });
-}, 30 * 1000); // 30초마다 체크
-
-// 세션 보장 미들웨어: 매번 새로운 세션 생성 (쿠키 사용 안 함)
+// 세션 보장 미들웨어: 매번 새로운 세션 생성
 const ensureSession = (req, res, next) => {
   let { sid } = req.cookies || {};
   
-  // 🔥 수정: 항상 새 세션 생성하려면 아래 주석 해제
-  // sid = null; // 강제로 매번 새 세션 생성
+  // 🔥 항상 새 세션 생성
+  sid = null;
   
   if (!sid) {
     sid = crypto.randomUUID();
-    // 매우 짧은 수명의 쿠키 (1분)
+    // 브라우저 닫으면 삭제되는 세션 쿠키
     res.cookie("sid", sid, {
       httpOnly: true,
       secure: isProd,
       sameSite: isProd ? "None" : "Lax",
-      maxAge: 60 * 1000, // 1분 (60초)
+      // maxAge 없음 = 브라우저 닫으면 삭제
     });
   }
   
@@ -159,7 +145,7 @@ const ensureSession = (req, res, next) => {
     sessions[sid] = {
       userData: { nickname: "", phoneNumber: "", imageUrl: "" },
       messages: defaultMsgs,
-      createdAt: Date.now(), // 세션 생성 시간 기록
+      createdAt: Date.now(),
     };
   }
   req.session = sessions[sid];
@@ -181,7 +167,6 @@ app.get("/health", (_, res) => res.json({ ok: true, time: Date.now() }));
 
 // 내 정보
 app.get("/me", (req, res) => {
-  // 세션의 userData 반환 (닉네임/전화/프로필)
   res.json(req.session.userData);
 });
 
@@ -196,7 +181,6 @@ app.post("/login", (req, res) => {
 app.post("/profile/image", upload.single("image"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file" });
   const filePath = `/uploads/${req.file.filename}`;
-  // 절대 URL로 만들고 싶으면 makeAbsoluteUrl(req, filePath) 구현해서 사용하세요.
   const absoluteUrl = `${req.protocol}://${req.get("host")}${filePath}`;
   req.session.userData.imageUrl = absoluteUrl;
   res.json({ imageUrl: req.session.userData.imageUrl });
