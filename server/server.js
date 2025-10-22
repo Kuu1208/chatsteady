@@ -42,11 +42,13 @@ app.use(express.json());
 app.use("/uploads", express.static(UPLOAD_DIR));
 if (hasClientBuild) app.use(express.static(CLIENT_BUILD_DIR));
 
-// 유틸: 현재 시간을 한국 형식으로 포맷팅
+// 유틸: 현재 시간을 한국 형식으로 포맷팅 (한국 시간대 적용)
 const getCurrentFormattedTime = () => {
   const now = new Date();
-  const hour = now.getHours();
-  const minute = now.getMinutes().toString().padStart(2, "0");
+  // 한국 시간대로 변환 (UTC+9)
+  const koreaTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  const hour = koreaTime.getHours();
+  const minute = koreaTime.getMinutes().toString().padStart(2, "0");
   const period = hour < 12 ? "오전" : "오후";
   const formattedHour = hour % 12 || 12;
   return `${period} ${formattedHour}:${minute}`;
