@@ -109,7 +109,21 @@ const createDefaultMessages = () => {
 };
 
 // 세션 저장 (메모리)
-const sessions = {}; // { sid: { userData: {...}, messages: [...] } }
+const sessions = {}; // { sid: { userData: {...}, messages: [...], createdAt: timestamp } }
+
+// 세션 자동 정리: 1분 이상 된 세션 삭제
+setInterval(() => {
+  const now = Date.now();
+  const SESSION_TIMEOUT = 60 * 1000; // 1분
+  
+  Object.keys(sessions).forEach(sid => {
+    const session = sessions[sid];
+    if (session.createdAt && (now - session.createdAt) > SESSION_TIMEOUT) {
+      delete sessions[sid];
+      console.log(`🗑️ 세션 삭제: ${sid}`);
+    }
+  });
+}, 30 * 1000); // 30초마다 체크
 
 // 세션 보장 미들웨어: 매번 새로운 세션 생성 (쿠키 사용 안 함)
 const ensureSession = (req, res, next) => {
@@ -145,6 +159,7 @@ const ensureSession = (req, res, next) => {
     sessions[sid] = {
       userData: { nickname: "", phoneNumber: "", imageUrl: "" },
       messages: defaultMsgs,
+      createdAt: Date.now(), // 세션 생성 시간 기록
     };
   }
   req.session = sessions[sid];
